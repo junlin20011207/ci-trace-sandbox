@@ -33,7 +33,7 @@ def disable_download(c): c['jobs']['release']['steps'][0]['if']='false'
 def disable_exec(c): c['jobs']['release']['steps'][1]['if']='false'
 def disable_job(c): c['jobs']['release']['if']='${{false}}'
 def cwd_different(c): c['jobs']['release']['defaults']={'run':{'working-directory':'scripts'}}
-def cwd_dynamic(c): c['jobs']['release']['defaults']={'run':{'working-directory':'${{ env.WORKDIR }}'}
+def cwd_dynamic(c): c['jobs']['release']['defaults']={'run':{'working-directory':'${{ env.WORKDIR }}'}}
 def cwd_step(c): c['jobs']['release']['steps'][1]['working-directory']='scripts'
 def cwd_step_override(c):
     cwd_different(c)
