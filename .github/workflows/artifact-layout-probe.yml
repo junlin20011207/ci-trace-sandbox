@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/ci-trace-cta001
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
