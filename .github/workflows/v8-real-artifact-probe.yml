@@ -1,0 +1,142 @@
+name: CI-TRACE V8 authenticated artifact gate probe
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  actual-github-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Retrieve authenticated historical run and artifact metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SOURCE_RUN_ID: '38138006392'
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/actions/runs/$SOURCE_RUN_ID" > run-api.json
+          gh api "repos/$REPO/actions/runs/$SOURCE_RUN_ID/artifacts" > artifact-list.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          run = json.loads(Path('run-api.json').read_text())
+          items = json.loads(Path('artifact-list.json').read_text())['artifacts']
+          found = [item for item in items if item['name'] == 'ci-trace-layout']
+          assert len(found) == 1, 'expected exactly one archived artifact'
+          artifact = found[0]
+          event = {'repository': {'full_name': run['repository']['full_name']},
+                   'workflow_run': {
+                       'id': run['id'], 'event': run['event'],
+                       'head_sha': run['head_sha'],
+                       'head_branch': run['head_branch'],
+                       'head_repository': run.get('head_repository') or {},
+                       'conclusion': run['conclusion']}}
+          policy = {'expected_run_id': run['id'],
+                    'repository': run['repository']['full_name'],
+                    'artifact_name': 'ci-trace-layout',
+                    'allowed_events': ['pull_request'],
+                    'require_same_repo': False,
+                    'allow_extensions': ['.txt'],
+                    'max_entries': 10,
+                    'max_uncompressed_bytes': 10240}
+          Path('event-api.json').write_text(json.dumps(event))
+          Path('artifact-api.json').write_text(json.dumps(artifact))
+          Path('policy.json').write_text(json.dumps(policy))
+          with open(os.environ['GITHUB_ENV'], 'a') as fd:
+              fd.write('SOURCE_ARTIFACT_ID='+str(artifact['id'])+'\n')
+          PY
+      - name: Download the real historical GitHub artifact ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/actions/artifacts/$SOURCE_ARTIFACT_ID/zip" > artifact.zip
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          actual='sha256:'+hashlib.sha256(Path('artifact.zip').read_bytes()).hexdigest()
+          reported=json.loads(Path('artifact-api.json').read_text())['digest']
+          print(json.dumps({'hash_matches_github_api':actual==reported,
+                            'archive_bytes':Path('artifact.zip').stat().st_size}))
+          PY
+      - name: Verify and isolate using real source metadata
+        env:
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$TEMP/ci-trace-release"
+          python -m ci_trace.provenance_guard \
+            --archive artifact.zip --event event-api.json \
+            --artifact-api artifact-api.json --policy policy.json \
+            --output-root "$TEMP/ci-trace-release" \
+            --workspace "$WORKSPACE" > result.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          approved=json.loads(Path('result.json').read_text())
+          assert approved['status']=='approved', approved
+          assert (Path(approved['release_dir'])/'probe.txt').read_text() == 'ci-trace layout probe\n'
+          print(json.dumps({'integration':'real-github-artifact',
+                            'decision':approved['status'],
+                            'source_run':approved['run_id'],
+                            'source_artifact':approved['artifact_id'],
+                            'isolated':True}))
+          PY
+      - name: Confirm the same artifact is rejected with a wrong run identity
+        env:
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          policy=json.loads(Path('policy.json').read_text())
+          policy['expected_run_id']=99999999
+          Path('negative-policy.json').write_text(json.dumps(policy))
+          PY
+          if python -m ci_trace.provenance_guard \
+              --archive artifact.zip --event event-api.json \
+              --artifact-api artifact-api.json --policy negative-policy.json \
+              --output-root "$TEMP/ci-trace-release" \
+              --workspace "$WORKSPACE" > negative.json; then
+            echo "ERROR: incorrect source was approved"
+            exit 1
+          fi
+          grep -q run_id_not_expected negative.json
+
+      - name: Verify using direct authenticated GitHub API source (no caller JSON)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          python -m ci_trace.github_api_gate \
+            --repository "$REPO" --run-id 38138006392 \
+            --artifact-id "$SOURCE_ARTIFACT_ID" \
+            --archive artifact.zip --policy policy.json \
+            --output-root "$TEMP/ci-trace-release" \
+            --workspace "$WORKSPACE" > direct-api-result.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('direct-api-result.json').read_text())
+          assert result['status'] == 'approved'
+          assert Path(result['release_dir'], 'probe.txt').read_text() == 'ci-trace layout probe\n'
+          print(json.dumps({'direct_authenticated_api': True,
+                            'source_run': result['run_id'],
+                            'source_artifact': result['artifact_id'],
+                            'approved': result['status']}))
+          PY
