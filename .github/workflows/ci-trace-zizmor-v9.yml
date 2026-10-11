@@ -1,0 +1,32 @@
+name: CI-TRACE Read-only Third Party Baseline
+on:
+  push:
+    branches: [ci-trace-live-lab]
+permissions:
+  contents: read
+jobs:
+  zizmor-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install official zizmor
+        run: |
+          python -m pip install --disable-pip-version-check zizmor
+          zizmor --version
+      - name: Scan research workflows
+        run: |
+          zizmor --offline --collect=workflows --format=json .github/workflows/ > zizmor-results.json || result=$?
+          python - <<'PY'
+          import json
+          d=json.load(open('zizmor-results.json'))
+          print('zizmor_json_type=',type(d).__name__)
+          print('zizmor_results_preview=',str(d)[:2000])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-trace-zizmor-baseline
+          path: zizmor-results.json
+          if-no-files-found: warn
