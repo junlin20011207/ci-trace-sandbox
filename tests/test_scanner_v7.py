@@ -79,3 +79,20 @@ def test_inert_overlay_and_isolation(tmp_path):
     result=subprocess.run(["node","-e","console.log(require('./.github/workflows/scripts/helper.js')())"],
                           cwd=workspace,text=True,capture_output=True,check=True)
     assert result.stdout.strip()=="TRUSTED"
+
+@pytest.mark.parametrize("guard,expected", [
+ ("github.event.workflow_run.head_repository.full_name == github.repository", False),
+ ("github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.conclusion == 'success'", False),
+ ("github.event.workflow_run.head_repository.full_name == github.repository || always()", True),
+])
+def test_provenance_gate_cannot_be_bypassed_by_or(guard,expected):
+    p,c=pair()
+    job=c["jobs"]["apply"]
+    job["permissions"]={"contents":"write"}
+    job["if"]=guard
+    ss=job["steps"]
+    ss[1]["with"]["path"]="${{ runner.temp }}/incoming"
+    ss[2]={"id":"check","run":'head_ref="$(cat incoming/dist-meta/head-ref)"; echo "head-ref=$head_ref" >> "$GITHUB_OUTPUT"'}
+    ss.append({"run":"git push origin HEAD:${{ steps.check.outputs.head-ref }}"})
+    result=analyze("p.yml",p,"c.yml",c)
+    assert any(f["rule"]=="ARTIFACT_METADATA_REF_WRITE" for f in result)==expected
