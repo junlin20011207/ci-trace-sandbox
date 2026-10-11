@@ -4,7 +4,7 @@ import pytest
 import yaml
 from ci_trace.scanner_v4 import scan
 
-UPSTREAM = '${ github.event.workflow_run.id }}'
+UPSTREAM = '${{ github.event.workflow_run.id }}'
 TOKEN = '${ secrets.GITHUB_TOKEN }}'
 
 def pair(tmp_path, *, origin=UPSTREAM, token=TOKEN, name='bundle', producer_name='bundle',
@@ -44,7 +44,7 @@ def test_real_upstream_with_executed_path(tmp_path):
 @pytest.mark.parametrize('origin,token,reason', [
     (None,TOKEN,'current_run'), (None,None,'current_run'),
     ('123',TOKEN,'unknown_run'), (UPSTREAM,None,'missing_token'),
-    ('${ github.run_id }}',TOKEN,'unknown_run')])
+    ('${{ github.run_id }}',TOKEN,'unknown_run')])
 def test_origin_gating(tmp_path, origin, token, reason):
     f = first(tmp_path, origin=origin, token=token)
     assert f['severity'] == 'informational'
