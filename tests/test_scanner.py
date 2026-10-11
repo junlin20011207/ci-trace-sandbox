@@ -61,3 +61,46 @@ def test_on_yaml_bool(tmp_path):
 
 def test_empty_dir(tmp_path):
     assert scan(tmp_path)["findings"] == []
+
+def test_download_after_execution(tmp_path):
+    consumer = CONSUMER.replace(
+        "      - uses: actions/download-artifact@v4\n      - run: bash ./dist/release.sh",
+        "      - run: bash ./dist/release.sh\n      - uses: actions/download-artifact@v4")
+    assert check(tmp_path, consumer=consumer)["findings"][0]["severity"] == "informational"
+
+def test_disjoint_paths(tmp_path):
+    consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
+        "uses: actions/download-artifact@v4\n        with:\n          path: staging")
+    assert check(tmp_path, consumer=consumer)["findings"][0]["severity"] == "informational"
+
+def test_overlapping_paths(tmp_path):
+    consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
+        "uses: actions/download-artifact@v4\n        with:\n          path: dist")
+    finding = check(tmp_path, consumer=consumer)["findings"][0]
+    assert finding["severity"] == "review_required"
+    assert finding["evidence"]["candidate_edges"][0]["download_path"] == "dist"
+
+def test_different_jobs(tmp_path):
+    consumer = CONSUMER.replace("      - run: bash ./dist/release.sh",
+        "  secondary:\n    runs-on: ubuntu-latest\n    steps:\n      - run: bash ./dist/release.sh")
+    assert check(tmp_path, consumer=consumer)["findings"][0]["severity"] == "informational"
+
+def test_dynamic_download_path(tmp_path):
+    consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
+        "uses: actions/download-artifact@v4\n        with:\n          path: ${{ env.TARGET }}")
+    assert check(tmp_path, consumer=consumer)["findings"][0]["severity"] == "informational"
+
+def test_parent_path_is_unknown(tmp_path):
+    consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
+        "uses: actions/download-artifact@v4\n        with:\n          path: ../dist")
+    assert check(tmp_path, consumer=consumer)["findings"][0]["severity"] == "informational"
+
+def test_path_prefix_not_substring(tmp_path):
+    consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
+        "uses: actions/download-artifact@v4\n        with:\n          path: di")
+    assert check(tmp_path, consumer=consumer)["findings"][0]["severity"] == "informational"
+
+def test_gh_download_path_unknown(tmp_path):
+    consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
+        "run: gh run download 123")
+    assert check(tmp_path, consumer=consumer)["findings"][0]["severity"] == "informational"
