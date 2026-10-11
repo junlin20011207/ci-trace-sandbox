@@ -1,5 +1,7 @@
 """Retrospective security-advisory cases; original source snapshots from public Git history."""
 import argparse,json
+from tempfile import TemporaryDirectory
+from ci_trace.scanner_v6 import scan as v6_scan
 from pathlib import Path
 from ci_trace.scanner_v7 import read,analyze
 CASES=[
@@ -13,8 +15,13 @@ def evaluate(path):
     for case,src,dst,expected,rule in CASES:
         found=analyze(src,read(root/src),dst,read(root/dst))
         actual=any(f["rule"]==rule for f in found)
+        with TemporaryDirectory(prefix="ci-trace-v6-public-") as tmp:
+            (Path(tmp)/"source.yml").write_text((root/src).read_text(encoding="utf-8"),encoding="utf-8")
+            (Path(tmp)/"consumer.yml").write_text((root/dst).read_text(encoding="utf-8"),encoding="utf-8")
+            old=v6_scan(tmp)
+        previous=any(x.get("severity")=="review_required" for x in old["findings"])
         result.append({"case":case,"expected_disclosure_class":expected,
-                       "detected":actual,"matched":expected==actual,
+                       "detected":actual,"matched":expected==actual,"v6_detected":previous,"v6_matched":expected==previous,
                        "rule":rule,"evidence":found})
     return result
 
@@ -24,7 +31,7 @@ def main():
     parser.add_argument("--assert-results",action="store_true")
     args=parser.parse_args();rows=evaluate(args.dir)
     summary={"evidence_type":"2 independently disclosed security advisories + 2 later fixed-control snapshots",
-             "n":len(rows),"matched":sum(x["matched"] for x in rows),"cases":rows}
+             "n":len(rows),"v6_matched":sum(x["v6_matched"] for x in rows),"v7_matched":sum(x["matched"] for x in rows),"cases":rows}
     print(json.dumps(summary,ensure_ascii=False,indent=2))
     return int(args.assert_results and not all(x["matched"] for x in rows))
 if __name__=="__main__":raise SystemExit(main())
