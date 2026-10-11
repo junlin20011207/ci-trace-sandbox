@@ -109,7 +109,7 @@ def annotate(working_dir, report):
                     continue
                 script = execution.get('run', '')
                 if not isinstance(script, str) or not re.search(
-                    r'(?:^|[;&|\n])\s*(?:bash|sh|python3?|node|source)\s+[\"']?\$[({A-Za-z_]',
+                    r'(?:^|[;&|\n])\s*(?:bash|sh|python3?|node|source)\s+[\"\']?\$[({A-Za-z_]',
                     script, flags=re.I,
                 ):
                     continue
