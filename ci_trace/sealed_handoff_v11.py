@@ -79,3 +79,21 @@ def consume_sealed_fd(fd, proof, *, max_bytes=1024 * 1024):
         return data
     except OSError as exc:
         raise Denied('handoff_read_failed') from exc
+
+
+def consume_authorized_sealed_fd(fd, proof, *, trusted_expected_sha256, max_bytes=1024 * 1024):
+    """Bind sealed data to the digest supplied by an INDEPENDENT trusted parent.
+
+    Passing the trusted_expected_sha256 from the same untrusted peer as the fd
+    is NOT authentication. The digest must originate from verified provenance.
+    """
+    import hmac
+    import re
+    _require(isinstance(trusted_expected_sha256, str) and
+             re.fullmatch(r'[a-f0-9]{64}', trusted_expected_sha256),
+             'invalid_trusted_digest')
+    _require(isinstance(proof, dict) and
+             isinstance(proof.get('sha256'), str) and
+             hmac.compare_digest(trusted_expected_sha256, proof['sha256']),
+             'handoff_not_authorized')
+    return consume_sealed_fd(fd, proof, max_bytes=max_bytes)
