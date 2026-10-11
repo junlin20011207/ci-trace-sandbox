@@ -75,3 +75,28 @@ def test_nonexec_memfd():
     try:
         assert not (os.fstat(fd).st_mode & 0o111)
     finally:os.close(fd)
+
+
+def test_forged_selfconsistent_sealed_fd_needs_trust_anchor():
+    from ci_trace.sealed_handoff_v11 import consume_authorized_sealed_fd
+    goodfd, goodproof = seal_bytes(b'ORIGINAL')
+    forgedfd, forgedproof = seal_bytes(b'FORGERY!')
+    try:
+        # The original API established consistency, NOT authorization.
+        assert consume_sealed_fd(forgedfd, forgedproof) == b'FORGERY!'
+        with pytest.raises(Denied, match='handoff_not_authorized'):
+            consume_authorized_sealed_fd(forgedfd,forgedproof,
+                                         trusted_expected_sha256=goodproof['sha256'])
+        assert consume_authorized_sealed_fd(goodfd, goodproof,
+                trusted_expected_sha256=goodproof['sha256']) == b'ORIGINAL'
+    finally:
+        os.close(goodfd)
+        os.close(forgedfd)
+
+def test_invalid_trusted_digest_rejected():
+    from ci_trace.sealed_handoff_v11 import consume_authorized_sealed_fd
+    fd,proof=seal_bytes(b'INERT')
+    try:
+        with pytest.raises(Denied,match='invalid_trusted_digest'):
+            consume_authorized_sealed_fd(fd,proof,trusted_expected_sha256='garbage')
+    finally:os.close(fd)
