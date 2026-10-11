@@ -90,16 +90,26 @@ def annotate(working_dir, report):
         # Preserve plausible indirect interpreter invocations as unresolved.
         examined = finding['evidence']['examined_edges']
         steps = list(v5.active_steps(workflow))
+        producer_path = finding['producer']
+        if producer_path not in cache:
+            cache[producer_path] = yaml.load(
+                (folder / producer_path).read_text(encoding='utf-8'),
+                Loader=v5.v4.ActionsLoader,
+            )
+        producer_names = v5.v4.names(cache[producer_path])
         for jid, job, down_idx, down in steps:
             if not (str(down.get('uses', '')).startswith('actions/download-artifact@')
                     and v5.v4.run_origin(down) == 'triggering_run'):
+                continue
+            relation, _ = v5.v4.identity(producer_names, down)
+            if relation == 'mismatched':
                 continue
             for ejid, _, exec_idx, execution in steps:
                 if ejid != jid or exec_idx <= down_idx:
                     continue
                 script = execution.get('run', '')
                 if not isinstance(script, str) or not re.search(
-                    r'(?:^|[;&|\n])\s*(?:bash|sh|python3?|node|source)\s+\$[({A-Za-z_]',
+                    r'(?:^|[;&|\n])\s*(?:bash|sh|python3?|node|source)\s+[\"']?\$[({A-Za-z_]',
                     script, flags=re.I,
                 ):
                     continue
@@ -108,7 +118,7 @@ def annotate(working_dir, report):
                     continue
                 examined.append({
                     'job': jid, 'download_step': down_idx, 'execution_step': exec_idx,
-                    'run_origin': 'triggering_run', 'artifact_identity': 'unknown',
+                    'run_origin': 'triggering_run', 'artifact_identity': relation,
                     'download_dirs': None, 'working_directory': None,
                     'execution_paths': None, 'path_overlap': None,
                     'conditions': 'conditional', 'candidate': False,
@@ -121,10 +131,10 @@ def annotate(working_dir, report):
             execution = job['steps'][edge['execution_step']]
             contradiction = incompatible_conditions(job.get('if'), down.get('if'), execution.get('if'))
             ambiguity = shell_ambiguity(execution.get('run'), execution)
-            if edge.get('v6_indirect_target'):
-                status, reason = 'unresolved', 'indirect_execution_target'
-            elif contradiction:
+            if contradiction:
                 status, reason = 'excluded', 'incompatible_step_conditions'
+            elif edge.get('v6_indirect_target'):
+                status, reason = 'unresolved', 'indirect_execution_target'
             elif edge['candidate'] and ambiguity:
                 status, reason = 'unresolved', 'opaque_shell_syntax'
             elif edge['candidate']:
