@@ -375,6 +375,8 @@ jobs:
           from ci_trace.verified_reader_v10 import read_verified_member
           from ci_trace.provenance_guard import Denied
           record=json.loads(Path('v11-real-release.json').read_text())
+          expected_sha=next(x['sha256'] for x in record['file_manifest']
+                            if x['path']=='probe.txt')
           fd,proof=seal_verified_member(record,'probe.txt')
           try:
               source=Path(record['release_dir'])/'probe.txt'
@@ -385,14 +387,14 @@ jobs:
               except Denied as e:
                   assert str(e)=='member_content_changed'
               child='''import json,os,sys
-          from ci_trace.sealed_handoff_v11 import consume_sealed_fd
-          fd=int(sys.argv[1]); proof=json.loads(sys.argv[2])
-          data=consume_sealed_fd(fd,proof)
+          from ci_trace.sealed_handoff_v11 import consume_authorized_sealed_fd
+          fd=int(sys.argv[1]); proof=json.loads(sys.argv[2]); expected=sys.argv[3]
+          data=consume_authorized_sealed_fd(fd,proof,trusted_expected_sha256=expected)
           try: os.pwrite(fd,b'TAMPER',0); write_denied=False
           except OSError: write_denied=True
           print(json.dumps({'text':data.decode(),'write_denied':write_denied}))
           '''
-              proc=subprocess.run([sys.executable,'-c',child,str(fd),json.dumps(proof)],
+              proc=subprocess.run([sys.executable,'-c',child,str(fd),json.dumps(proof),expected_sha],
                                   pass_fds=(fd,),capture_output=True,text=True,check=True)
               result=json.loads(proc.stdout)
               assert result['text']=='ci-trace layout probe\n'
