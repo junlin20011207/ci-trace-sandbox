@@ -1,0 +1,16 @@
+{
+  "study_date": "2026-10-11",
+  "total": 600,
+  "statuses": {
+    "UNKNOWN": 13,
+    "OPTIMAL": 511,
+    "UNSAT": 76
+  },
+  "exact_lower_cost": 215,
+  "exact_equal_cost": 296,
+  "total_opt_cost": 4913,
+  "total_greedy_cost": 5359,
+  "exact_median_ms": 0.153,
+  "greedy_median_ms": 0.012,
+  "limitation": "Synthetic trust graphs and hypothetical mitigation costs; no hosted-runner measurement or production cost validation."
+}
