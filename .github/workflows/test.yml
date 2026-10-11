@@ -16,3 +16,4 @@ jobs:
       - run: python -m pytest -q
       - run: python -m benchmarks.compare --assert-results
       - run: python -m ci_trace.scanner_v4 .github/workflows
+      - run: python -m ci_trace.scanner_v5 .github/workflows
