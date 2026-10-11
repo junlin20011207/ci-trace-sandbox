@@ -5,7 +5,7 @@ import yaml
 from ci_trace.scanner_v4 import scan
 
 UPSTREAM = '${{ github.event.workflow_run.id }}'
-TOKEN = '${ secrets.GITHUB_TOKEN }}'
+TOKEN = '${{ secrets.GITHUB_TOKEN }}'
 
 def pair(tmp_path, *, origin=UPSTREAM, token=TOKEN, name='bundle', producer_name='bundle',
          folder='dist', command='bash ./dist/release.sh', selected_name=True, merge=False,
