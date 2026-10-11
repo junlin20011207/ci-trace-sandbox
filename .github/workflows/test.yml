@@ -26,4 +26,6 @@ jobs:
       - run: python -m benchmarks.revision_binding_v9 --cases 400
       - run: python -m benchmarks.v10_path_swap --trials 40
       - run: python -m benchmarks.v10_cost
+      - run: python -m benchmarks.v11_handoff
+      - run: python -m benchmarks.v11_cost
       - run: python -m ci_trace.scanner_v7 .github/workflows
