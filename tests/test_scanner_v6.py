@@ -92,7 +92,7 @@ def test_literal_mismatch_can_be_excluded(tmp_path):
 
 
 def test_current_run_is_not_upstream(tmp_path):
-    f = case(tmp_path, downloader={'run-id': '${{ github.run_id }}')
+    f = case(tmp_path, downloader={'run-id': '${{ github.run_id }}'})
     assert f['severity'] == 'needs_resolution'  # explicitly unknown relative to producer
 
 
