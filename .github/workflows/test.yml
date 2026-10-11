@@ -21,4 +21,5 @@ jobs:
       - run: python -m ci_trace.scanner_v5 .github/workflows
       - run: python -m ci_trace.scanner_v6 .github/workflows
       - run: python -m benchmarks.public_cases_v7 --assert-results
+      - run: python -m benchmarks.provenance_gate
       - run: python -m ci_trace.scanner_v7 .github/workflows
