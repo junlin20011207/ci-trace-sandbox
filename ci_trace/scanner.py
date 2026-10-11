@@ -79,6 +79,23 @@ def ordered_execution_edges(data):
                               "execution_paths": paths, "path_overlap": overlap})
     return edges
 
+def artifact_names(steps_list):
+    names = set()
+    for step in steps_list:
+        value = (step.get("with") or {}).get("name") if isinstance(step.get("with"), dict) else None
+        if isinstance(value, str) and value and "${{" not in value:
+            names.add(value)
+    return names
+
+def artifact_identity_relation(producer, consumer):
+    produced = artifact_names(uploads(producer))
+    received = artifact_names([s for s in downloads(consumer)
+                               if str(s.get("uses", "")).startswith("actions/download-artifact@")])
+    # Without complete literal names, identity remains unresolved.
+    if produced and received:
+        return "matched" if produced & received else "mismatched"
+    return "unknown"
+
 def scan(folder):
     paths = sorted(Path(folder).glob("*.yml")) + sorted(Path(folder).glob("*.yaml"))
     workflows, errors, findings = [], [], []
@@ -96,11 +113,12 @@ def scan(folder):
         for consumer_file, consumer in workflows:
             if name not in consumer_names(consumer) or not downloads(consumer): continue
             edges = ordered_execution_edges(consumer)
-            candidates = [e for e in edges if e["path_overlap"] is True]
+            identity = artifact_identity_relation(producer, consumer)
+            candidates = [e for e in edges if e["path_overlap"] is True and identity != "mismatched"]
             potential_exec = len(edges)
             findings.append({
                 "id": "CTA001", "producer": producer_file, "consumer": consumer_file,
-                "producer_name": name,
+                "producer_name": name, "artifact_identity": identity,
                 "severity": "review_required" if candidates else "informational",
                 "evidence": {"upload_steps": len(uploads(producer)),
                              "download_steps": len(downloads(consumer)),
@@ -109,7 +127,7 @@ def scan(folder):
                              "other_ordered_edges": [e for e in edges if e["path_overlap"] is not True]},
                 "limitations": "Structural path overlap only. Artifact identity, attacker control, privileges and exploitability NOT established"
             })
-    return {"schema_version": 2, "workflow_count": len(workflows),
+    return {"schema_version": 3, "workflow_count": len(workflows),
             "findings": findings, "parse_errors": errors}
 
 def main():
