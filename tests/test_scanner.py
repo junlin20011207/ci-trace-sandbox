@@ -104,3 +104,29 @@ def test_gh_download_path_unknown(tmp_path):
     consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
         "run: gh run download 123")
     assert check(tmp_path, consumer=consumer)["findings"][0]["severity"] == "informational"
+
+def test_distinct_named_artifacts_downgraded(tmp_path):
+    producer = PRODUCER.replace("uses: actions/upload-artifact@v4",
+        "uses: actions/upload-artifact@v4\n        with:\n          name: safe-report")
+    consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
+        "uses: actions/download-artifact@v4\n        with:\n          name: other-report")
+    finding = check(tmp_path, producer=producer, consumer=consumer)["findings"][0]
+    assert finding["artifact_identity"] == "mismatched"
+    assert finding["severity"] == "informational"
+
+def test_matching_named_artifacts_flagged(tmp_path):
+    producer = PRODUCER.replace("uses: actions/upload-artifact@v4",
+        "uses: actions/upload-artifact@v4\n        with:\n          name: release")
+    consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
+        "uses: actions/download-artifact@v4\n        with:\n          name: release")
+    finding = check(tmp_path, producer=producer, consumer=consumer)["findings"][0]
+    assert finding["artifact_identity"] == "matched"
+    assert finding["severity"] == "review_required"
+
+def test_dynamic_artifact_identity_unknown(tmp_path):
+    producer = PRODUCER.replace("uses: actions/upload-artifact@v4",
+        "uses: actions/upload-artifact@v4\n        with:\n          name: ${{ env.NAME }}")
+    consumer = CONSUMER.replace("uses: actions/download-artifact@v4",
+        "uses: actions/download-artifact@v4\n        with:\n          name: concrete")
+    finding = check(tmp_path, producer=producer, consumer=consumer)["findings"][0]
+    assert finding["artifact_identity"] == "unknown"
