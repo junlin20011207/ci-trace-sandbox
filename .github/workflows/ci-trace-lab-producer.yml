@@ -1,0 +1,20 @@
+name: CI-TRACE Lab Producer
+on:
+  push:
+    branches: [ci-trace-live-lab]
+permissions:
+  contents: read
+jobs:
+  synthetic-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare known non-secret test artifact
+        shell: bash
+        run: |
+          printf '#!/bin/sh\nprintf "CI_TRACE_LIVE_OK\\n"\n' > proof.sh
+          echo 'c07db6c03e9d757d501ff41808a77e24d0fe361e8fcfb75288d97a2f79da6151  proof.sh' | sha256sum -c -
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-trace-demo
+          path: proof.sh
+          if-no-files-found: error
