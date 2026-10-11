@@ -106,18 +106,35 @@ def receive_authorized(conn, *, trusted_expected_sha256, allowed_uid,
     _require(peer['uid'] == allowed_uid, 'ipc_peer_uid_denied')
     if allowed_pid is not None:
         _require(peer['pid'] == allowed_pid, 'ipc_peer_pid_denied')
+    # Connection credentials alone are fixed at connection time. Requiring
+    # kernel-generated SCM_CREDENTIALS for EACH message detects socket
+    # delegation from an approved process to a different sender.
+    try:
+        conn.setsockopt(socket.SOL_SOCKET, socket.SO_PASSCRED, 1)
+    except OSError as exc:
+        raise Denied('ipc_message_credentials_unavailable') from exc
     challenge = secrets.token_bytes(NONCE_LEN)
     fds = []
     try:
         conn.sendall(challenge)
         payload, controls, flags, _ = conn.recvmsg(
-            HEADER_MAX, socket.CMSG_SPACE(MAX_FDS * array.array('i').itemsize),
+            HEADER_MAX, socket.CMSG_SPACE(MAX_FDS * array.array('i').itemsize)
+            + socket.CMSG_SPACE(struct.calcsize('3i')),
             socket.MSG_CMSG_CLOEXEC)
+        sender_creds = []
         for level, typ, data in controls:
-            if level == socket.SOL_SOCKET and typ == socket.SCM_RIGHTS:
+            if level == socket.SOL_SOCKET and typ == socket.SCM_CREDENTIALS:
+                _require(len(data) >= struct.calcsize('3i'), 'ipc_malformed_credentials')
+                pid,uid,gid = struct.unpack('3i',data[:struct.calcsize('3i')])
+                sender_creds.append({'pid':pid,'uid':uid,'gid':gid})
+            elif level == socket.SOL_SOCKET and typ == socket.SCM_RIGHTS:
                 ints = array.array('i')
                 ints.frombytes(data[:len(data) - len(data) % ints.itemsize])
                 fds.extend(ints)
+            else:
+                raise Denied('ipc_unexpected_ancillary')
+        _require(len(sender_creds) == 1, 'ipc_expected_message_credentials')
+        _require(sender_creds[0] == peer, 'ipc_delegated_socket_sender')
         _require(not flags & (socket.MSG_TRUNC | socket.MSG_CTRUNC),
                  'ipc_truncated_message')
         _require(len(fds) == 1, 'ipc_expected_single_fd')
