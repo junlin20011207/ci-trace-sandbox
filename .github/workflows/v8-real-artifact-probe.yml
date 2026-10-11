@@ -439,3 +439,62 @@ jobs:
           finally:
               os.close(fd)
           PY
+      - name: V12 real GitHub artifact over credentialed UNIX SCM_RIGHTS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os,socket,subprocess,sys,tempfile
+          from pathlib import Path
+          from ci_trace.github_api_gate import load_authenticated_metadata
+          from ci_trace.sealed_signed_release_v11 import issue_sealed_member
+          from ci_trace.authenticated_ipc_v12 import receive_authorized
+          event,artifact=load_authenticated_metadata(os.environ['REPO'],
+              38138006392,int(os.environ['SOURCE_ARTIFACT_ID']),os.environ['GH_TOKEN'])
+          protected=Path(os.environ['TEMP'])/'ci-trace-keys'
+          approval=json.loads(Path('approval-package.json').read_text())
+          policy=json.loads((protected/'policy.json').read_text())
+          keys=json.loads((protected/'keys.json').read_text())
+          fd,cap=issue_sealed_member('artifact.zip',event,artifact,policy,
+              approval,keys,Path(os.environ['TEMP'])/'ci-trace-release',
+              os.environ['WORKSPACE'],'probe.txt')
+          with tempfile.TemporaryDirectory(prefix='ci-trace-v12-',dir=os.environ['TEMP']) as td:
+              sockpath=str(Path(td)/'authorized.sock')
+              server=socket.socket(socket.AF_UNIX,socket.SOCK_SEQPACKET)
+              server.bind(sockpath);os.chmod(sockpath,0o600)
+              server.listen(1);server.settimeout(5)
+              child_source='''import json,os,socket,sys
+          from ci_trace.authenticated_ipc_v12 import send_sealed
+          sock=socket.socket(socket.AF_UNIX,socket.SOCK_SEQPACKET)
+          sock.settimeout(5);sock.connect(sys.argv[1])
+          try:
+              send_sealed(sock,int(sys.argv[2]),json.loads(sys.argv[3]),
+                          allowed_receiver_uid=os.getuid(),
+                          allowed_receiver_pid=int(sys.argv[4]))
+          finally:sock.close()
+          '''
+              child=subprocess.Popen([sys.executable,'-c',child_source,sockpath,
+                     str(fd),json.dumps(cap['proof']),str(os.getpid())],
+                     pass_fds=(fd,),text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+              try:
+                  conn,_=server.accept()
+                  with conn:
+                      conn.settimeout(5)
+                      data,peer=receive_authorized(conn,
+                        trusted_expected_sha256=cap['trusted_expected_sha256'],
+                        allowed_uid=os.getuid(),allowed_pid=child.pid)
+                  stdout,stderr=child.communicate(timeout=7)
+                  assert child.returncode==0,stderr
+                  assert data==b'ci-trace layout probe\n'
+                  assert peer['pid']==child.pid
+                  print(json.dumps({'real_github_artifact':True,
+                    'signed_provenance':True,'mutual_kernel_peer_check':True,
+                    'fresh_challenge':True,'scm_rights':True,'verified_bytes':len(data)}))
+              finally:
+                  if child.poll() is None:child.kill();child.communicate()
+                  server.close();os.close(fd)
+          PY
