@@ -140,3 +140,50 @@ jobs:
                             'source_artifact': result['artifact_id'],
                             'approved': result['status']}))
           PY
+      - name: V9 authorizer binds real archive to an independently pinned SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          # Source SHA was pinned from a separate GitHub artifact record ahead of test.
+          # This test workflow is a PR and NOT a protected production approval record.
+          python -m ci_trace.github_authorized_gate \
+            --repository "$REPO" --run-id 38138006392 \
+            --artifact-id "$SOURCE_ARTIFACT_ID" \
+            --approved-sha "b6d81e195455f1681365b0cb5ce8e05803c638fb" \
+            --archive artifact.zip --policy policy.json \
+            --output-root "$TEMP/ci-trace-release" \
+            --workspace "$WORKSPACE" > v9-approved.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          value=json.loads(Path('v9-approved.json').read_text())
+          assert value['status']=='approved'
+          assert value['authorization_status']=='exact_revision_bound'
+          assert value['approval_binding']['authorized_commit_sha']=='b6d81e195455f1681365b0cb5ce8e05803c638fb'
+          assert value['safe_to_execute_or_publish'] is False
+          print(json.dumps({'v9_real_api_exact_sha':'approved','source_run':value['run_id']}))
+          PY
+      - name: V9 rejects the same real archive if approved SHA does not match
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          if python -m ci_trace.github_authorized_gate \
+            --repository "$REPO" --run-id 38138006392 \
+            --artifact-id "$SOURCE_ARTIFACT_ID" \
+            --approved-sha "0000000000000000000000000000000000000000" \
+            --archive artifact.zip --policy policy.json \
+            --output-root "$TEMP/ci-trace-release" \
+            --workspace "$WORKSPACE" > v9-rejected.json; then
+            echo "Unexpected approval of unauthorized SHA" >&2
+            exit 1
+          fi
+          grep -q approved_commit_changed v9-rejected.json
+          echo '{"v9_real_api_wrong_sha":"denied"}'
