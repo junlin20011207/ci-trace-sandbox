@@ -347,3 +347,44 @@ jobs:
               'snapshot_and_signature_verified':True,
               'same_size_postrelease_modification':'denied'}))
           PY
+      - name: V11 kernel sealed-data descriptor handoff from real signed GitHub artifact
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+          from ci_trace.sealed_handoff_v11 import seal_verified_member
+          from ci_trace.verified_reader_v10 import read_verified_member
+          from ci_trace.provenance_guard import Denied
+          record=json.loads(Path('v10-real-release.json').read_text())
+          fd,proof=seal_verified_member(record,'probe.txt')
+          try:
+              source=Path(record['release_dir'])/'probe.txt'
+              source.write_bytes(b'xx-trace layout probe\n')
+              try:
+                  read_verified_member(record,'probe.txt')
+                  raise AssertionError('Expected V10 manifest reader to deny modified path')
+              except Denied as e:
+                  assert str(e)=='member_content_changed'
+              child='''import json,os,sys
+          from ci_trace.sealed_handoff_v11 import consume_sealed_fd
+          fd=int(sys.argv[1]); proof=json.loads(sys.argv[2])
+          data=consume_sealed_fd(fd,proof)
+          try: os.pwrite(fd,b'TAMPER',0); write_denied=False
+          except OSError: write_denied=True
+          print(json.dumps({'text':data.decode(),'write_denied':write_denied}))
+          '''
+              proc=subprocess.run([sys.executable,'-c',child,str(fd),json.dumps(proof)],
+                                  pass_fds=(fd,),capture_output=True,text=True,check=True)
+              result=json.loads(proc.stdout)
+              assert result['text']=='ci-trace layout probe\n'
+              assert result['write_denied']
+              print(json.dumps({'real_github_artifact':True,'sealed_fd_child':'original_verified_content',
+                                'postrelease_path_mutation':'v10_reader_denied',
+                                'kernel_write_seal':'enforced'}))
+          finally:
+              os.close(fd)
+          PY
