@@ -1,3 +1,20 @@
+## V11 — Kernel-sealed, provenance-bound data handoff (research only)
+
+[Draft PR #9](https://github.com/junlin20011207/ci-trace-sandbox/pull/9) · [ROUND11_REPORT.md](ROUND11_REPORT.md)
+
+V10 **already safely detects postrelease mutation if its committed-byte reader is used**. V11 reduces downstream cross-process API misuse by issuing a non-executable Linux sealed memfd instead of asking consumers to reopen a mutable filesystem path.
+
+- `ci_trace/sealed_handoff_v11.py`: kernel `memfd_create` + immutable seals, read-only data verification, independent trusted digest requirement.
+- `ci_trace/sealed_signed_release_v11.py`: one-call signed origin -> verified ZIP snapshot -> sealed member, with staging cleanup and no filename handoff.
+- `benchmarks/v11_handoff.py`: 30 mutation controls each for unsafe raw-path usage, **correct V10 manifest usage**, and sealed V11 descriptor.
+- `benchmarks/v11_cost.py`: Linux single-runner microbenchmark; excludes network and full pipeline costs.
+
+Reproduce: `python -m pytest -q`, `python -m benchmarks.v11_handoff`, and `python -m benchmarks.v11_cost`.
+
+**This is a data-only capability, not an arbitrary artifact executor.** Original Linux seals and signed provenance are existing technologies; production signers and independent trust roots remain undeployed.
+
+---
+
 ## V10 — Verified bytes are the bytes consumed (experimental)
 
 [Draft PR #8](https://github.com/junlin20011207/ci-trace-sandbox/pull/8) · [ROUND10_REPORT.md](ROUND10_REPORT.md)
