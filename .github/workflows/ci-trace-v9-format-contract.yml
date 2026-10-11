@@ -1,0 +1,50 @@
+name: CI-TRACE V9 Real Artifact Format Contract
+on:
+  push:
+    branches: [ci-trace-live-lab]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  upload-unzipped:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate fixed harmless text fixture
+        shell: bash
+        run: |
+          printf 'CI_TRACE_FORMAT_V9_OK\n' > payload.txt
+          printf 'CI_TRACE_FORMAT_V9_OK\n' | cmp - payload.txt
+      - name: Upload unzipped artifact with intentionally ignored name
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ignored-name
+          path: payload.txt
+          archive: false
+          if-no-files-found: error
+  check-file-name:
+    needs: upload-unzipped
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download by actual basename, not supplied name
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: payload.txt
+      - name: Verify downloaded bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f payload.txt
+          printf 'CI_TRACE_FORMAT_V9_OK\n' | cmp - payload.txt
+          echo 'V9_UNZIPPED_REAL_OK=1'
+      - name: Attempt incorrect ignored artifact name (expected failure)
+        id: wrong
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: ignored-name
+      - name: Verify wrong-name attempt was rejected
+        env:
+          ATTEMPT_RESULT: ${{ steps.wrong.outcome }}
+        run: |
+          test "$ATTEMPT_RESULT" = failure
+          echo 'V9_WRONG_NAME_REJECTED=1'
