@@ -1,0 +1,32 @@
+name: CI-TRACE External Baseline - zizmor
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  zizmor-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned zizmor baseline
+        run: python -m pip install zizmor==1.30.1
+      - name: Audit same repository workflow corpus
+        run: zizmor --collect=workflows --format=json-v1 --no-exit-codes .github/workflows > zizmor-baseline.json
+      - name: Print taxonomy counts (no equivalence to CI-TRACE candidates)
+        run: |
+          python - <<'PY'
+          import collections
+          import json
+          from pathlib import Path
+          rows = json.loads(Path('zizmor-baseline.json').read_text(encoding='utf-8'))
+          names = collections.Counter(x.get('ident', 'unknown') for x in rows)
+          print(json.dumps({'tool':'zizmor','version':'1.30.1',
+                            'corpus':'current repository .github/workflows',
+                            'total_findings':len(rows),
+                            'finding_types':dict(sorted(names.items()))}, indent=2))
+          PY
