@@ -1,0 +1,59 @@
+{
+  "risk_paths": [
+    "r1",
+    "r2",
+    "r3",
+    "r4",
+    "r5",
+    "r6"
+  ],
+  "required_release_paths": [
+    "main-release"
+  ],
+  "evidence_complete": true,
+  "patches": [
+    {
+      "id": "A",
+      "blocks": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "cost": 2
+    },
+    {
+      "id": "B",
+      "blocks": [
+        "r1",
+        "r2",
+        "r3"
+      ],
+      "cost": 2
+    },
+    {
+      "id": "C",
+      "blocks": [
+        "r4",
+        "r5",
+        "r6"
+      ],
+      "cost": 2
+    },
+    {
+      "id": "D",
+      "blocks": [
+        "r1",
+        "r2",
+        "r3",
+        "r4",
+        "r5",
+        "r6"
+      ],
+      "cost": 1,
+      "breaks_required": [
+        "main-release"
+      ]
+    }
+  ]
+}
