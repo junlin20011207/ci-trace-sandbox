@@ -243,3 +243,69 @@ jobs:
                             'test_only_signed_approval':'pass',
                             'tampered_approval':'denied'}))
           PY
+      - name: V9 end-to-end signed CLI with trusted-root path separation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$TEMP/ci-trace-keys"
+          python - <<'PY'
+          import base64,json,os
+          from pathlib import Path
+          from datetime import datetime,timezone,timedelta
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          from cryptography.hazmat.primitives import serialization
+          from ci_trace.signed_authorization import payload_bytes
+          now=datetime.now(timezone.utc)
+          record={'repository':os.environ['REPO'],'run_id':38138006392,
+              'artifact_name':'ci-trace-layout',
+              'commit_sha':'b6d81e195455f1681365b0cb5ce8e05803c638fb',
+              'purpose':'artifact_release',
+              'issued_at':(now-timedelta(minutes=1)).isoformat(),
+              'expires_at':(now+timedelta(minutes=10)).isoformat()}
+          sk=Ed25519PrivateKey.generate()
+          pub=sk.public_key().public_bytes(encoding=serialization.Encoding.Raw,
+                                     format=serialization.PublicFormat.Raw).hex()
+          package={'key_id':'ephemeral-test-key','record':record,
+              'signature':base64.b64encode(sk.sign(payload_bytes(record))).decode()}
+          protected=Path(os.environ['TEMP'])/'ci-trace-keys'
+          (protected/'keys.json').write_text(json.dumps({'ephemeral-test-key':pub}))
+          (protected/'policy.json').write_text(Path('policy.json').read_text())
+          Path('approval-package.json').write_text(json.dumps(package))
+          package['record']['commit_sha']='0'*40
+          Path('tampered-approval.json').write_text(json.dumps(package))
+          PY
+          python -m ci_trace.github_signed_gate \
+            --repository "$REPO" --run-id 38138006392 \
+            --artifact-id "$SOURCE_ARTIFACT_ID" \
+            --archive artifact.zip --approval-package approval-package.json \
+            --trusted-keys "$TEMP/ci-trace-keys/keys.json" \
+            --trusted-policy "$TEMP/ci-trace-keys/policy.json" \
+            --output-root "$TEMP/ci-trace-release" \
+            --workspace "$WORKSPACE" > signed-cli-approved.json
+          if python -m ci_trace.github_signed_gate \
+            --repository "$REPO" --run-id 38138006392 \
+            --artifact-id "$SOURCE_ARTIFACT_ID" \
+            --archive artifact.zip --approval-package tampered-approval.json \
+            --trusted-keys "$TEMP/ci-trace-keys/keys.json" \
+            --trusted-policy "$TEMP/ci-trace-keys/policy.json" \
+            --output-root "$TEMP/ci-trace-release" \
+            --workspace "$WORKSPACE" > signed-cli-rejected.json; then
+            echo "Tampered signature was accepted" >&2
+            exit 1
+          fi
+          grep -q approval_signature_invalid signed-cli-rejected.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('signed-cli-approved.json').read_text())
+          assert r['status']=='approved'
+          assert r['approval_signature']['verified']
+          assert not r['safe_to_execute_or_publish']
+          print(json.dumps({'signed_cli_real_github_api':'approved',
+                            'tampered_record':'denied',
+                            'protected_root_outside_workspace':True}))
+          PY
