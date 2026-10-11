@@ -1,3 +1,19 @@
+## V9 — cryptographically bound approval (experimental)
+
+New independent research branch: [V9 Draft PR](https://github.com/junlin20011207/ci-trace-sandbox/pull/7) and [ROUND9_REPORT.md](ROUND9_REPORT.md).
+
+- `authorization_binding.py`: exact approved commit SHA is compared to authenticated GitHub run/artifact metadata; mismatch denies before extraction.
+- `signed_authorization.py`: Ed25519 verification of signed approval records, issuer key allowlist, purpose, and time validity.
+- `github_signed_gate.py`: combines authentic GitHub REST metadata with protected key/policy files, signed approval, digest verification, and ZIP isolation.
+- `checkout_gate.py`: verifies a signed approval against **actual git HEAD** and a clean worktree, for event types where workflow run SHA does not denote reviewed PR code.
+- `benchmarks/revision_binding_v9.py`: 400 seeded synthetic counterfactuals under hosted CI, not real vulnerabilities.
+
+Usage: `python -m ci_trace.github_signed_gate --help`, `python -m pytest -q`, `python -m benchmarks.revision_binding_v9 --cases 400`.
+
+**Trust boundary:** Approved signatures/public keys MUST originate from an independently protected approval service. The CI keys are ephemeral demonstration keys; this project does not provide production maintainer authorization or prove real-world attack prevention.
+
+---
+
 # CI-TRACE — Evidence-to-Enforcement for GitHub Actions Artifacts
 
 Research prototype for defensive CI/CD supply-chain security and the Chinese Graduate Student Cybersecurity Innovation Competition creative works track.
