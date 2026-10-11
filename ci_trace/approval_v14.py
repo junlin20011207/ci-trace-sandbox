@@ -154,9 +154,10 @@ class ProtectedIssuer:
         _require(isinstance(key,Ed25519PrivateKey),'private_signer_required')
         _require(bool(allowlist),'issuer_policy_required')
         self.ledger,self.key,self.key_id=ledger,key,key_id
-        self.allowed=frozenset((x['repository'],x['commit_sha'],x['recipient'])
-                               for x in allowlist)
+        fields=('repository','run_id','artifact_id','commit_sha','content_sha256','recipient')
+        self.fields=fields
+        self.allowed=frozenset(tuple(x[k] for k in fields) for x in allowlist)
     def issue(self,subject,*,ttl=60,now=None):
-        _require((subject.get('repository'),subject.get('commit_sha'),
-                  subject.get('recipient')) in self.allowed,'issuer_policy_denied')
+        _require(tuple(subject.get(k) for k in self.fields) in self.allowed,
+                 'issuer_policy_denied')
         return issue_signed_grant(self.ledger,self.key,self.key_id,subject,ttl=ttl,now=now)
