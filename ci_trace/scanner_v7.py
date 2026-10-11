@@ -103,7 +103,7 @@ def analyze(producer_file,producer,consumer_file,consumer):
                          "module_import_after_download"]})
         if "contents" not in permits and "*" not in permits:continue
         guard=str(job.get("if",""))
-        if re.search(r"github\.event\.workflow_run\.head_repository\.full_name\s*==\s*github\.repository",guard):continue
+        if "||" not in guard and re.search(r"github\.event\.workflow_run\.head_repository\.full_name\s*==\s*github\.repository",guard):continue
         for ri,reader in seq:
             body=str(reader.get("run",""))
             key=reader.get("id")
