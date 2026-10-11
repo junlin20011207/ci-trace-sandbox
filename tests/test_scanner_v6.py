@@ -119,3 +119,20 @@ def test_shell_substitution_is_opaque():
 def test_parse_failure_retained(tmp_path):
     (tmp_path / 'broken.yml').write_text('on: [', encoding='utf-8')
     assert scan(tmp_path)['parse_errors']
+
+def test_mismatched_artifact_indirect_command_is_excluded(tmp_path):
+    f = case(tmp_path, downloader={'name': 'different'}, command='bash $SOME_SCRIPT')
+    assert f['severity'] == 'informational'
+
+
+def test_indirect_command_with_mutually_exclusive_guards_excluded(tmp_path):
+    f = case(tmp_path,
+             download_if="github.event.workflow_run.conclusion == 'success'",
+             exec_if="github.event.workflow_run.conclusion == 'failure'",
+             command='bash $SOME_SCRIPT')
+    assert f['severity'] == 'informational'
+
+
+def test_quoted_dynamic_command_is_unknown(tmp_path):
+    f = case(tmp_path, command='bash "$TARGET"')
+    assert f['severity'] == 'needs_resolution'
