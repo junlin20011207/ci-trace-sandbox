@@ -11,7 +11,7 @@ import threading
 import pytest
 from ci_trace.provenance_guard import Denied
 from ci_trace.sealed_handoff_v11 import seal_bytes
-from ci_trace.authenticated_ipc_v12 import receive_authorized,send_sealed
+from ci_trace.authenticated_ipc_v12 import receive_authorized,send_sealed,kernel_peer
 
 GOOD=b'authenticated inert test data'
 GOOD_SHA=hashlib.sha256(GOOD).hexdigest()
@@ -149,4 +149,44 @@ def test_real_peer_pid_from_separate_process(tmp_path):
         assert child.returncode==0,stderr
     finally:
         if child.poll() is None:child.kill();child.communicate()
+        server.close()
+
+
+def test_socket_delegation_incorrectly_preserves_so_peercred_but_rejected(tmp_path):
+    """Connected by A, actual SCM message sent by B through inherited socket."""
+    listener_path=str(tmp_path/'delegated.sock')
+    server=socket.socket(socket.AF_UNIX,socket.SOCK_SEQPACKET)
+    server.bind(listener_path);server.listen(1);server.settimeout(5)
+    delegate=textwrap.dedent("""
+        import os,socket,sys
+        from ci_trace.sealed_handoff_v11 import seal_bytes
+        from ci_trace.authenticated_ipc_v12 import send_sealed
+        s=socket.socket(fileno=int(sys.argv[1]));s.settimeout(5)
+        fd,proof=seal_bytes(b'authenticated inert test data')
+        try:send_sealed(s,fd,proof,allowed_receiver_uid=os.getuid())
+        finally:os.close(fd);s.close()
+    """)
+    connector=textwrap.dedent("""
+        import os,socket,subprocess,sys
+        s=socket.socket(socket.AF_UNIX,socket.SOCK_SEQPACKET)
+        s.settimeout(5);s.connect(sys.argv[1])
+        child=subprocess.run([sys.executable,'-c',sys.argv[2],str(s.fileno())],
+                 pass_fds=(s.fileno(),),capture_output=True,text=True,timeout=6)
+        if child.returncode:print(child.stderr,file=sys.stderr)
+        s.close()
+        sys.exit(child.returncode)
+    """)
+    proc=subprocess.Popen([sys.executable,'-c',connector,listener_path,delegate],
+         stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+    try:
+        conn,_=server.accept();conn.settimeout(5)
+        with conn:
+            assert kernel_peer(conn)['pid']==proc.pid
+            with pytest.raises(Denied,match='ipc_delegated_socket_sender'):
+                receive_authorized(conn,trusted_expected_sha256=GOOD_SHA,
+                                   allowed_uid=os.getuid(),allowed_pid=proc.pid)
+        stdout,stderr=proc.communicate(timeout=7)
+        assert proc.returncode==0,stderr
+    finally:
+        if proc.poll() is None:proc.kill();proc.communicate()
         server.close()
