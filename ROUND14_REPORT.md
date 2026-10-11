@@ -12,6 +12,11 @@ V13 enforces one-use local grants and real distinct-Linux-UID transport, but:
 5. Success on one real historic benign Artifact + synthetic tests does not establish real-world security/business ROI.
 6. Signed attestations, X.509 identities, SQLite transactions and supply-chain policy engines are existing prior art; simply composing them does not prove contest-leading novelty.
 
+
+### Fourth falsification: same approved commit, different artifact subject
+
+A late adversarial check revealed the first issuer allowlist compared only repository, commit SHA and recipient. Mutating the run ID, artifact ID or content SHA-256 could therefore receive a new issuer signature despite the expected approved artifact being different. The added test initially **failed as expected**. The allowlist was corrected to require an exact match across **repository, run ID, artifact ID, commit SHA, content SHA-256, recipient service identity**, and the test then passed. This is a safety-boundary defect in our experimental issuer, not a publicly exploited vulnerability.
+
 ## Three experimental routes
 
 **A. Issuer and revocation.** The V14 Ed25519 authority signs a domain-separated, exact subject record binding repository, source run, Artifact ID, commit SHA, content SHA-256, recipient service URI and short time interval. A separately supplied allowlist constrains who can issue approvals; the protected SQLite store implements grant revoke, key revoke and one-use reservation. The issuer and protected policy have to be trusted: the demo uses ephemeral test keys, not organization authority.
