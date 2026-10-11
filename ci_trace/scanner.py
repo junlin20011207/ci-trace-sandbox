@@ -37,6 +37,48 @@ def consumer_names(data):
     names = trigger.get("workflows", []) if isinstance(trigger, dict) else []
     return {names} if isinstance(names, str) else set(map(str, names))
 
+def literal_path(value):
+    if not isinstance(value, str) or not value or "${{" in value or "*" in value:
+        return None
+    path = value.strip().strip('"').strip("'").replace("\\", "/").removeprefix("./")
+    if path.startswith("/") or ".." in path.split("/"):
+        return None
+    return path.rstrip("/") or "."
+
+def downloaded_path(step):
+    if str(step.get("uses", "")).startswith(("actions/download-artifact@", "dawidd6/action-download-artifact@")):
+        return literal_path((step.get("with") or {}).get("path", "."))
+    return None
+
+def ordered_execution_edges(data):
+    edges = []
+    for job_name, job in (data.get("jobs") or {}).items():
+        if not isinstance(job, dict):
+            continue
+        seen = []
+        for index, step in enumerate(job.get("steps") or []):
+            if not isinstance(step, dict):
+                continue
+            if str(step.get("uses", "")).startswith(("actions/download-artifact@", "dawidd6/action-download-artifact@")) or re.search(r"\\bgh\\s+run\\s+download\\b", str(step.get("run", ""))):
+                seen.append((index, downloaded_path(step)))
+                continue
+            command = str(step.get("run", ""))
+            if not EXEC_RE.search(command):
+                continue
+            paths = [literal_path(raw) for raw in re.findall(r"(?<![\\w./])(?:\\./)?[\\w.-]+(?:/[\\w.-]+)+(?![\\w./])", command)]
+            paths = [p for p in paths if p]
+            for source_index, folder in seen:
+                if folder is None or not paths:
+                    overlap = None
+                elif folder == ".":
+                    overlap = True
+                else:
+                    overlap = any(p == folder or p.startswith(folder + "/") for p in paths)
+                edges.append({"job": str(job_name), "download_step": source_index,
+                              "execution_step": index, "download_path": folder,
+                              "execution_paths": paths, "path_overlap": overlap})
+    return edges
+
 def scan(folder):
     paths = sorted(Path(folder).glob("*.yml")) + sorted(Path(folder).glob("*.yaml"))
     workflows, errors, findings = [], [], []
@@ -53,17 +95,21 @@ def scan(folder):
         name = str(producer.get("name") or Path(producer_file).stem)
         for consumer_file, consumer in workflows:
             if name not in consumer_names(consumer) or not downloads(consumer): continue
-            potential_exec = sum(bool(EXEC_RE.search(str(s.get("run", "")))) for s in steps(consumer))
+            edges = ordered_execution_edges(consumer)
+            candidates = [e for e in edges if e["path_overlap"] is True]
+            potential_exec = len(edges)
             findings.append({
                 "id": "CTA001", "producer": producer_file, "consumer": consumer_file,
                 "producer_name": name,
-                "severity": "review_required" if potential_exec else "informational",
+                "severity": "review_required" if candidates else "informational",
                 "evidence": {"upload_steps": len(uploads(producer)),
                              "download_steps": len(downloads(consumer)),
-                             "potential_execution_steps": potential_exec},
-                "limitations": "Artifact-to-execution dataflow and attacker control NOT established"
+                             "potential_execution_steps": potential_exec,
+                             "candidate_edges": candidates,
+                             "other_ordered_edges": [e for e in edges if e["path_overlap"] is not True]},
+                "limitations": "Structural path overlap only. Artifact identity, attacker control, privileges and exploitability NOT established"
             })
-    return {"schema_version": 1, "workflow_count": len(workflows),
+    return {"schema_version": 2, "workflow_count": len(workflows),
             "findings": findings, "parse_errors": errors}
 
 def main():
