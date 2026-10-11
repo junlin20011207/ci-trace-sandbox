@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import subprocess
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -20,6 +21,14 @@ SHA=hashlib.sha256(DATA).hexdigest()
 def issuer():
     td=tempfile.TemporaryDirectory(prefix='ci-v13-',dir='/tmp')
     top=Path(td.name);os.chmod(top,0o755)
+    # Unprivileged worker cannot traverse a protected checkout on hosted CI.
+    # Stage only nonsecret Python verifier code in readable /tmp.
+    package=top/'ci_trace'
+    shutil.copytree(Path(__file__).resolve().parents[1]/'ci_trace',package,
+                    ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+    for item in package.rglob('*'):
+        os.chmod(item,0o755 if item.is_dir() else 0o644)
+    os.chmod(package,0o755)
     private=top/'private';private.mkdir(mode=0o700)
     db=private/'grants.sqlite'
     ledger=RedemptionLedger(db)
@@ -48,7 +57,7 @@ except Exception as e:
         os.setuid(uid)
     return subprocess.Popen([sys.executable,'-c',code,str(path),grant,SHA,str(db)],
         preexec_fn=drop,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
-        env={**os.environ,'PYTHONPATH':str(Path(__file__).resolve().parents[1])})
+        env={**os.environ,'PYTHONPATH':str(Path(path).parent)})
 
 def serve_once(server,client,ledger,fd,proof):
     conn,_=server.accept();conn.settimeout(5)
