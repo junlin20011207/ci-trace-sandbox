@@ -348,8 +348,23 @@ jobs:
               'same_size_postrelease_modification':'denied'}))
           PY
       - name: V11 kernel sealed-data descriptor handoff from real signed GitHub artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
         run: |
           set -euo pipefail
+          # V10's preceding test deliberately mutates its extracted file.
+          # Revalidate the authentic archive into a fresh snapshot for V11.
+          python -m ci_trace.github_signed_gate_v10 \
+            --repository "$REPO" --run-id 38138006392 \
+            --artifact-id "$SOURCE_ARTIFACT_ID" \
+            --archive artifact.zip --approval-package approval-package.json \
+            --trusted-keys "$TEMP/ci-trace-keys/keys.json" \
+            --trusted-policy "$TEMP/ci-trace-keys/policy.json" \
+            --output-root "$TEMP/ci-trace-release" \
+            --workspace "$WORKSPACE" > v11-real-release.json
           python - <<'PY'
           import json
           import os
@@ -359,7 +374,7 @@ jobs:
           from ci_trace.sealed_handoff_v11 import seal_verified_member
           from ci_trace.verified_reader_v10 import read_verified_member
           from ci_trace.provenance_guard import Denied
-          record=json.loads(Path('v10-real-release.json').read_text())
+          record=json.loads(Path('v11-real-release.json').read_text())
           fd,proof=seal_verified_member(record,'probe.txt')
           try:
               source=Path(record['release_dir'])/'probe.txt'
