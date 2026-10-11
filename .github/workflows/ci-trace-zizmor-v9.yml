@@ -19,14 +19,18 @@ jobs:
       - name: Scan research workflows
         run: |
           zizmor --offline --collect=workflows --format=json .github/workflows/ > zizmor-results.json || result=$?
+          zizmor --offline --collect=workflows --format=json research/v9_cases/v4_zip/*.yml research/v9_cases/v7_raw/producer.yml > zizmor-shared-corpus.json || result=$?
           python - <<'PY'
           import json
-          d=json.load(open('zizmor-results.json'))
+          d=json.load(open('zizmor-shared-corpus.json'))
           print('zizmor_json_type=',type(d).__name__)
-          print('zizmor_results_preview=',str(d)[:2000])
+          from collections import Counter
+          print('zizmor_shared_corpus_findings=',len(d))
+          print('zizmor_shared_corpus_rules=',dict(Counter(item['ident'] for item in d)))
+          print('zizmor_shared_corpus_paths=',[item['locations'][0].get('symbolic',{}).get('key',{}) for item in d])
           PY
       - uses: actions/upload-artifact@v4
         with:
           name: ci-trace-zizmor-baseline
-          path: zizmor-results.json
+          path: |\n            zizmor-results.json\n            zizmor-shared-corpus.json
           if-no-files-found: warn
