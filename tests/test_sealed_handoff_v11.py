@@ -41,7 +41,7 @@ print(json.dumps({"payload":data.decode(),"seal":code}))
     finally:os.close(fd)
 
 def test_v10_file_path_can_change_but_v11_fd_stays_trusted(tmp_path):
-    arc, alt, event, api, policy, root, ws = fixture(tmp_path)
+    arc, alt, event, api, policy, root, ws = fixture(tmp_path)[:7]
     record = verify_and_extract_snapshot(arc,event,api,policy,root,ws)
     fd, proof = seal_verified_member(record,'report.json')
     try:
