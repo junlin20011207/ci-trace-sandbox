@@ -1,3 +1,29 @@
+## V10 — Verified bytes are the bytes consumed (experimental)
+
+[Draft PR #8](https://github.com/junlin20011207/ci-trace-sandbox/pull/8) · [ROUND10_REPORT.md](ROUND10_REPORT.md)
+
+A new, **deterministically reproduced V9 digest-to-extraction TOCTOU flaw** existed because V9 hashed a ZIP by pathname and then reopened the mutable pathname for extraction. The same file path could refer to different bytes at those two stages, including after valid signed approval.
+
+- `ci_trace/snapshot_guard_v10.py` checks and unpacks exactly one immutable bounded ZIP byte snapshot, not a re-opened pathname.
+- `ci_trace/signed_snapshot_v10.py` and `github_signed_gate_v10.py` retain authenticated GitHub REST and signed approval requirements while using the repaired release path.
+- `ci_trace/verified_reader_v10.py` returns only content matching an in-memory digest commitment using Linux no-follow descriptor traversal.
+- `ci_trace/json_consumer_v10.py` handles schema-limited inert JSON in the same trusted process and deletes the temporary release directory after consumption.
+- `benchmarks/v10_path_swap.py` reproduces the V9 violation and V10 counterfactual with controlled real local ZIP file replacement; `benchmarks/v10_cost.py` measures performance trade-offs.
+
+Reproduce:
+
+```bash
+python -m pip install -r requirements.txt pytest
+python -m pytest -q
+python -m benchmarks.v10_path_swap --trials 40
+python -m benchmarks.v10_cost
+python -m ci_trace.github_signed_gate_v10 --help
+```
+
+**Security boundary:** In a real deployment, protected public keys, signed approval subject and trusted policy must be managed separately from PR-controlled code. V10 neither proves remote exploitability of the V9 prototype flaw nor makes arbitrary artifact bytes safe to execute/publish. Ordinary code that reopens a released path instead of using the sink-bound API is outside the postrelease integrity guarantee.
+
+---
+
 ## V9 — cryptographically bound approval (experimental)
 
 New independent research branch: [V9 Draft PR](https://github.com/junlin20011207/ci-trace-sandbox/pull/7) and [ROUND9_REPORT.md](ROUND9_REPORT.md).

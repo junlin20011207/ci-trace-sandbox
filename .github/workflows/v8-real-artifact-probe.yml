@@ -309,3 +309,41 @@ jobs:
                             'tampered_record':'denied',
                             'protected_root_outside_workspace':True}))
           PY
+      - name: V10 real signed snapshot and sink-bound byte consumer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          python -m ci_trace.github_signed_gate_v10 \
+            --repository "$REPO" --run-id 38138006392 \
+            --artifact-id "$SOURCE_ARTIFACT_ID" \
+            --archive artifact.zip --approval-package approval-package.json \
+            --trusted-keys "$TEMP/ci-trace-keys/keys.json" \
+            --trusted-policy "$TEMP/ci-trace-keys/policy.json" \
+            --output-root "$TEMP/ci-trace-release" \
+            --workspace "$WORKSPACE" > v10-real-release.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from ci_trace.verified_reader_v10 import read_verified_member
+          from ci_trace.provenance_guard import Denied
+          report=json.loads(Path('v10-real-release.json').read_text())
+          assert report['status']=='approved'
+          assert report['approval_signature']['verified'] is True
+          assert report['snapshot_type']=='immutable_bytes'
+          assert not report['safe_to_execute_or_publish']
+          assert read_verified_member(report,'probe.txt') == b'ci-trace layout probe\n'
+          filepath=Path(report['release_dir'])/'probe.txt'
+          filepath.write_bytes(b'xx-trace layout probe\n')
+          try:
+              read_verified_member(report,'probe.txt')
+              raise AssertionError('Postrelease mutation bypassed trusted manifest')
+          except Denied as exc:
+              assert str(exc)=='member_content_changed',str(exc)
+          print(json.dumps({'v10_real_github_artifact':True,
+              'snapshot_and_signature_verified':True,
+              'same_size_postrelease_modification':'denied'}))
+          PY
