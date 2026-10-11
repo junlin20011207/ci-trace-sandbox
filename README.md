@@ -1,3 +1,17 @@
+## V12 — Kernel-message-authenticated UNIX sealed-data transfer
+
+[Draft PR #10](https://github.com/junlin20011207/ci-trace-sandbox/pull/10) · [ROUND12_REPORT.md](ROUND12_REPORT.md)
+
+V11's sealed FD + hash preserves bytes but does not authenticate remote process identity. V12 adds mutual Linux `SO_PEERCRED` checks, **per-message `SCM_CREDENTIALS`** checks, a 256-bit fresh challenge, framed `SOCK_SEQPACKET` and exactly-one-`SCM_RIGHTS` FD. The receiver must already possess the independently authorized expected SHA-256.
+
+A falsification experiment showed an authorized process A could pass its connected socket to B: `SO_PEERCRED` continued to report A while `SCM_CREDENTIALS` identified B. V12 now rejects this delegation mismatch.
+
+Reproduce on Linux: `python -m pytest -q`, `python -m benchmarks.v12_ipc --trials 30`. The branch also runs actual benign prior-run GitHub Artifact -> V11 signed seal -> V12 independent child process protocol on a hosted runner.
+
+**Not a new Linux primitive or production trusted identity system.** UID/PID alone do not implement organization authorization, and protected signer/digest/policy infrastructure is not deployed. V12 returns inert bytes only, never authorization to execute or publish.
+
+---
+
 ## V11 — Kernel-sealed, provenance-bound data handoff (research only)
 
 [Draft PR #9](https://github.com/junlin20011207/ci-trace-sandbox/pull/9) · [ROUND11_REPORT.md](ROUND11_REPORT.md)
