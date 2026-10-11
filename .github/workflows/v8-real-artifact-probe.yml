@@ -498,3 +498,16 @@ jobs:
                   if child.poll() is None:child.kill();child.communicate()
                   server.close();os.close(fd)
           PY
+      - name: V13 authenticated signed Artifact one-use release across independent Linux UIDs
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          sudo -n env GH_TOKEN="$GH_TOKEN" REPO="$REPO" \
+            WORKSPACE="$WORKSPACE" TEMP="$TEMP" \
+            SOURCE_ARTIFACT_ID="$SOURCE_ARTIFACT_ID" PYTHONPATH="$WORKSPACE" \
+            "$(command -v python)" -m benchmarks.v13_real_artifact
