@@ -1,0 +1,43 @@
+name: CI-TRACE Artifact Layout Probe
+on:
+  push:
+    branches:
+      - feature/ci-trace-cta001
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  artifact-semantics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create inert artifact payload
+        run: |
+          mkdir -p inert scripts
+          printf 'ci-trace layout probe\n' > inert/probe.txt
+      - name: Upload safe probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-trace-layout
+          path: inert/probe.txt
+          if-no-files-found: error
+      - name: Download all artifacts (nested directory)
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+      - name: Assert name subdirectory is present
+        run: |
+          test -f all-artifacts/ci-trace-layout/probe.txt
+          grep -q 'ci-trace layout probe' all-artifacts/ci-trace-layout/probe.txt
+      - name: Download named artifact (flattened destination)
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-trace-layout
+          path: named-artifact
+      - name: Assert named layout
+        run: test -f named-artifact/probe.txt
+      - name: Verify relative working-directory
+        working-directory: scripts
+        run: test "$(pwd)" = "$GITHUB_WORKSPACE/scripts"
+      - name: Disabled step is never executed
+        if: ${{ false }}
+        run: exit 42
