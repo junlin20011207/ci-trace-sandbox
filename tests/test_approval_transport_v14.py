@@ -38,8 +38,11 @@ def test_v14_signed_subject_recipient_and_revocation(tmp_path):
     ledger,issuer,pub,token=kit(tmp_path)
     with pytest.raises(Denied,match='recipient_not_authorized'):
         ledger.reserve(token,pub,B)
-    with pytest.raises(Denied,match='issuer_policy_denied'):
-        issuer.issue({**token['record'],'commit_sha':'b'*40})
+    for name,value in [('repository','other/repo'),('commit_sha','b'*40),
+                       ('recipient',B),('run_id',999),('artifact_id',999),
+                       ('content_sha256','f'*64)]:
+        with pytest.raises(Denied,match='issuer_policy_denied'):
+            issuer.issue({**token['record'],name:value})
     ledger.revoke_key('issuer-v1')
     with pytest.raises(Denied,match='approval_key_revoked'):
         ledger.reserve(token,pub,A)
