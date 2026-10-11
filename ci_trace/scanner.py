@@ -59,13 +59,13 @@ def ordered_execution_edges(data):
         for index, step in enumerate(job.get("steps") or []):
             if not isinstance(step, dict):
                 continue
-            if str(step.get("uses", "")).startswith(("actions/download-artifact@", "dawidd6/action-download-artifact@")) or re.search(r"\\bgh\\s+run\\s+download\\b", str(step.get("run", ""))):
+            if str(step.get("uses", "")).startswith(("actions/download-artifact@", "dawidd6/action-download-artifact@")) or re.search(r"\bgh\s+run\s+download\b", str(step.get("run", ""))):
                 seen.append((index, downloaded_path(step)))
                 continue
             command = str(step.get("run", ""))
             if not EXEC_RE.search(command):
                 continue
-            paths = [literal_path(raw) for raw in re.findall(r"(?<![\\w./])(?:\\./)?[\\w.-]+(?:/[\\w.-]+)+(?![\\w./])", command)]
+            paths = [literal_path(raw) for raw in re.findall(r"(?<![\w./])(?:\./)?[\w.-]+(?:/[\w.-]+)+(?![\w./])", command)]
             paths = [p for p in paths if p]
             for source_index, folder in seen:
                 if folder is None or not paths:
