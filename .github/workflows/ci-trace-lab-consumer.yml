@@ -1,0 +1,28 @@
+name: CI-TRACE Lab Consumer
+on:
+  workflow_run:
+    workflows: [CI-TRACE Lab Producer]
+    types: [completed]
+permissions: {}
+jobs:
+  verify-cross-run-artifact:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository && github.event.workflow_run.head_branch == 'ci-trace-live-lab' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-trace-demo
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Verify pinned benign script and execute
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ./proof.sh
+          echo 'c07db6c03e9d757d501ff41808a77e24d0fe361e8fcfb75288d97a2f79da6151  proof.sh' | sha256sum -c -
+          output="$(sh ./proof.sh)"
+          test "$output" = 'CI_TRACE_LIVE_OK'
+          echo "CI_TRACE_CROSS_RUN_VERIFIED=1"
