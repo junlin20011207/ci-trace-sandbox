@@ -1,3 +1,19 @@
+## V13 — Protected single-use artifact authorization broker (research)
+
+[Draft PR #11](https://github.com/junlin20011207/ci-trace-sandbox/pull/11) · [ROUND13_REPORT.md](ROUND13_REPORT.md)
+
+V12 provides provenance-bound Linux message authentication, but had no **persistent grant redemption state**. V13 adds a 256-bit random, UID/digest/expiry-bound one-use capability stored in a protected SQLite database. The broker atomically consumes it before passing a V11 sealed fd and verifies kernel SCM_CREDENTIALS on **both** the redemption request and nonce challenge.
+
+The experimental Linux server enables SO_PASSCRED **before listen**. Enabling it after accept produced intermittently missing message PIDs with already queued requests. A separate counterexample delegates the socket to another process between request and challenge; V13 rejects that transfer.
+
+Reproduce: `python -m pytest -q`, `python -m benchmarks.v13_redeem`, and for authorized disposable root Linux test hosts `sudo -n env PYTHONPATH="$PWD" "$(command -v python)" -m pytest -q tests/test_issuer_broker_v13.py`.
+
+Hosted CI includes a real benign historical GitHub Artifact verified by REST, signed SHA approval and sealed memfd, issued by a root broker to UID 65534; wrong UID and one-use replay are denied. No production signer/issuance service is supplied.
+
+**Not exactly-once delivery**: a broker crash after redemption but before transmission consumes the grant permanently. UID-only identity is not organizational authorization. No arbitrary artifact execution or publication is permitted.
+
+---
+
 ## V12 — Kernel-message-authenticated UNIX sealed-data transfer
 
 [Draft PR #10](https://github.com/junlin20011207/ci-trace-sandbox/pull/10) · [ROUND12_REPORT.md](ROUND12_REPORT.md)
