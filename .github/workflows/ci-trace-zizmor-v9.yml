@@ -32,5 +32,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ci-trace-zizmor-baseline
-          path: |\n            zizmor-results.json\n            zizmor-shared-corpus.json
+          path: |
+            zizmor-results.json
+            zizmor-shared-corpus.json
           if-no-files-found: warn
