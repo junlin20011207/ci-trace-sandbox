@@ -16,5 +16,7 @@ jobs:
       - run: python -m pytest -q
       - run: python -m benchmarks.compare --assert-results
       - run: python -m benchmarks.v5_delta --assert-results
+      - run: python -m benchmarks.v6_delta --assert-results
       - run: python -m ci_trace.scanner_v4 .github/workflows
       - run: python -m ci_trace.scanner_v5 .github/workflows
+      - run: python -m ci_trace.scanner_v6 .github/workflows
