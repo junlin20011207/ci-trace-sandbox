@@ -24,7 +24,7 @@ def params(step):
     return value if isinstance(value, dict) else {}
 
 def static(value):
-    return isinstance(value, str) and bool(value.strip()) and '${' not in value
+    return isinstance(value, str) and bool(value.strip()) and '${{' not in value
 
 def names(producer):
     result = []
@@ -63,7 +63,7 @@ def run_origin(step):
         if not p.get('github-token'):
             return 'missing_token'
         repo = p.get('repository')
-        if repo and str(repo).replace(' ', '') != '${github.repository}}':
+        if repo and str(repo).replace(' ', '') != '${{github.repository}}':
             return 'unknown_repository'
         return 'triggering_run'
     if uses.startswith('dawidd6/action-download-artifact@'):
