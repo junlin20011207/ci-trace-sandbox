@@ -35,3 +35,13 @@ Date: 2026-10-11. Defensive research only. No production credential or privilege
 - Full tested Python source, the original GitHub-produced ZIP, proof scripts, scoped datasets and the reproducible offline test runner are in the V10 local research package shared with the user. 
 
 This is a research-branch report only: **do not merge draft PR #1** as a production change.
+
+## Additional hosted-runner raw artifact format proof
+
+- Real runner: https://github.com/junlin20011207/ci-trace-sandbox/actions/runs/38132036481
+- Exact workflow Git Blob SHA: a2e88eb23ff36452b70be6ba4f556d92d5eb52b5
+- Pinned producer upload-artifact commit: cf430e030ddbb5b0abf93d22962f4752f3646cd9; pinned downloader: 9000827ccba6bdab643e8b6fd33ac0654aef8333.
+- Upload `archive: false` produced the raw 22-byte `payload.txt`, despite configured `name: ignored-name`; download with `payload.txt` succeeded and download with `ignored-name` failed as expected.
+- Artifact ID 11698259927; original bytes SHA256 d834dba796eeb4773e565102c7592debdd8bc5abf5d2deac9658064f7a6682f5 independently verified in sandbox.
+- Caution: the existing zizmor scanner deliberately captures exit status with `|| result=$?` without a subsequent failure gate. A green runner job does NOT mean its three High-level findings were remediated or enforcement passed.
+- Updated isolated V10 package has **140/140** offline pytest checks passed, including the raw-artifact byte test.
