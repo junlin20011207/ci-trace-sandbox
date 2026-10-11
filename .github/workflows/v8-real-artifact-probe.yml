@@ -405,3 +405,37 @@ jobs:
           finally:
               os.close(fd)
           PY
+      - name: V11 single-call signed origin to sealed data capability
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          from ci_trace.github_api_gate import load_authenticated_metadata
+          from ci_trace.sealed_signed_release_v11 import issue_sealed_member
+          from ci_trace.sealed_handoff_v11 import consume_authorized_sealed_fd
+          repo=os.environ['REPO']
+          event,art=load_authenticated_metadata(repo,38138006392,
+                          int(os.environ['SOURCE_ARTIFACT_ID']),os.environ['GH_TOKEN'])
+          protected=Path(os.environ['TEMP'])/'ci-trace-keys'
+          approval=json.loads(Path('approval-package.json').read_text())
+          policy=json.loads((protected/'policy.json').read_text())
+          keys=json.loads((protected/'keys.json').read_text())
+          fd,cap=issue_sealed_member('artifact.zip',event,art,policy,approval,keys,
+                     Path(os.environ['TEMP'])/'ci-trace-release',os.environ['WORKSPACE'],
+                     'probe.txt')
+          try:
+              verified=consume_authorized_sealed_fd(fd,cap['proof'],
+                                trusted_expected_sha256=cap['trusted_expected_sha256'])
+              assert verified == b'ci-trace layout probe\n'
+              assert cap['safe_to_execute_or_publish'] is False
+              print(json.dumps({'single_call_real_api':True,'sealed':True,
+                                'inert_payload_bytes':len(verified),'safe_to_execute':False}))
+          finally:
+              os.close(fd)
+          PY
