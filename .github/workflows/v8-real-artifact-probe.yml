@@ -114,3 +114,29 @@ jobs:
             exit 1
           fi
           grep -q run_id_not_expected negative.json
+
+      - name: Verify using direct authenticated GitHub API source (no caller JSON)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          python -m ci_trace.github_api_gate \
+            --repository "$REPO" --run-id 38138006392 \
+            --artifact-id "$SOURCE_ARTIFACT_ID" \
+            --archive artifact.zip --policy policy.json \
+            --output-root "$TEMP/ci-trace-release" \
+            --workspace "$WORKSPACE" > direct-api-result.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('direct-api-result.json').read_text())
+          assert result['status'] == 'approved'
+          assert Path(result['release_dir'], 'probe.txt').read_text() == 'ci-trace layout probe\n'
+          print(json.dumps({'direct_authenticated_api': True,
+                            'source_run': result['run_id'],
+                            'source_artifact': result['artifact_id'],
+                            'approved': result['status']}))
+          PY
