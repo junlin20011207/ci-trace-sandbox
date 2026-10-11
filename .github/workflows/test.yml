@@ -28,4 +28,5 @@ jobs:
       - run: python -m benchmarks.v10_cost
       - run: python -m benchmarks.v11_handoff
       - run: python -m benchmarks.v11_cost
+      - run: python -m benchmarks.v12_ipc --trials 30
       - run: python -m ci_trace.scanner_v7 .github/workflows
