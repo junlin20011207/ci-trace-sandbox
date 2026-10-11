@@ -187,3 +187,57 @@ jobs:
           fi
           grep -q approved_commit_changed v9-rejected.json
           echo '{"v9_real_api_wrong_sha":"denied"}'
+      - name: V9 cryptographic approval integration using real GitHub API and benign ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SOURCE_ARTIFACT_ID: ${{ env.SOURCE_ARTIFACT_ID }}
+          WORKSPACE: ${{ github.workspace }}
+          TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          from datetime import datetime,timezone,timedelta
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          from cryptography.hazmat.primitives import serialization
+          from ci_trace.github_api_gate import load_authenticated_metadata
+          from ci_trace.signed_authorization import payload_bytes,verify_signed_release
+          from ci_trace.provenance_guard import Denied
+          run_id=38138006392
+          event,artifact=load_authenticated_metadata(os.environ['REPO'],run_id,
+                                  int(os.environ['SOURCE_ARTIFACT_ID']),os.environ['GH_TOKEN'])
+          policy=json.loads(Path('policy.json').read_text())
+          pinned_sha='b6d81e195455f1681365b0cb5ce8e05803c638fb'
+          now=datetime.now(timezone.utc)
+          record={'repository':os.environ['REPO'],'run_id':run_id,
+                  'artifact_name':'ci-trace-layout','commit_sha':pinned_sha,
+                  'purpose':'artifact_release',
+                  'issued_at':(now-timedelta(minutes=1)).isoformat(),
+                  'expires_at':(now+timedelta(minutes=10)).isoformat()}
+          # Ephemeral signing key is used ONLY for CI integration testing.
+          # Production signers must reside outside PR-controlled workflows.
+          signer=Ed25519PrivateKey.generate()
+          key_hex=signer.public_key().public_bytes(
+              encoding=serialization.Encoding.Raw,
+              format=serialization.PublicFormat.Raw).hex()
+          keys={'test-ci-key':key_hex}
+          pack={'key_id':'test-ci-key','record':record,
+                'signature':base64.b64encode(signer.sign(payload_bytes(record))).decode()}
+          output=Path(os.environ['TEMP'])/'ci-trace-release'
+          approved=verify_signed_release('artifact.zip',event,artifact,policy,pack,
+                         keys,output,os.environ['WORKSPACE'],now=now)
+          assert approved['status']=='approved'
+          assert approved['approval_signature']['verified'] is True
+          pack['record']['commit_sha']='0'*40
+          try:
+              verify_signed_release('artifact.zip',event,artifact,policy,pack,
+                                     keys,output,os.environ['WORKSPACE'],now=now)
+              raise AssertionError('Tampered signature unexpectedly accepted')
+          except Denied as error:
+              assert str(error)=='approval_signature_invalid',str(error)
+          print(json.dumps({'real_authenticated_artifact':True,
+                            'test_only_signed_approval':'pass',
+                            'tampered_approval':'denied'}))
+          PY
