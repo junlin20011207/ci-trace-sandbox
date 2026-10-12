@@ -57,6 +57,47 @@ jobs:
           print('EXTERNAL_DATA_AGGREGATE='+json.dumps(report,sort_keys=True))
           with open('external_aggregate.json','w') as g:json.dump(report,g,indent=2)
           PY
+  third-party-pr-approvals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - name: Inspect real public third-party PR review events (no personal identities retained)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,urllib.request,collections,time
+          token=os.environ['GH_TOKEN']
+          def api(uri):
+              req=urllib.request.Request(
+                 'https://api.github.com'+uri,
+                 headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json',
+                          'X-GitHub-Api-Version':'2022-11-28','User-Agent':'CI-TRACE-R22-public-review-study'})
+              with urllib.request.urlopen(req,timeout=20) as r:return json.load(r)
+          result={'source':'real_public_GitHub_PR_review_events',
+                  'based_on_real_reviews_not_business_delivery_approvals':True,'repos':[]}
+          for repo in ['pallets/flask','nodejs/node']:
+              pulls=api('/repos/'+repo+'/pulls?state=closed&per_page=40')
+              merged=[p for p in pulls if p.get('merged_at')][:12]
+              approved=0;changes=0;no_review=0;total_review=0
+              for p in merged:
+                  reviews=api('/repos/'+repo+'/pulls/'+str(p['number'])+'/reviews?per_page=100')
+                  st=[r.get('state') for r in reviews]
+                  approved+=int('APPROVED' in st)
+                  changes+=int('CHANGES_REQUESTED' in st)
+                  no_review+=int(not st)
+                  total_review+=len(st)
+              row={'repository':repo,'merged_pr_samples':len(merged),
+                'prs_with_approved_events':approved,'prs_with_changes_requested_events':changes,
+                'prs_with_no_review_events':no_review,'total_review_events':total_review}
+              result['repos'].append(row)
+          print('REAL_THIRD_PARTY_PR_REVIEWS='+json.dumps(result,sort_keys=True))
+          with open('external_public_pr_reviews.json','w') as file:json.dump(result,file,indent=2)
+          PY
   tlc-formal:
     runs-on: ubuntu-latest
     timeout-minutes: 9
