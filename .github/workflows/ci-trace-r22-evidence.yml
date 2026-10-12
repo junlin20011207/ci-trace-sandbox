@@ -30,7 +30,8 @@ jobs:
         run: |
           set -euo pipefail
           base=https://raw.githubusercontent.com/sparkrew/github-actions-security/327c162df95c967d01dd34d815c6e01283f5b032
-          curl -fLsS --retry 2 --max-time 45 "$base/dataset/workflow_list.csv" -o /tmp/external_workflows.csv
+          curl -fLsS --retry 2 --max-time 45 "$base/dataset/workflow_list.csv" -o /tmp/external_repositories.csv
+          curl -fLsS --retry 2 --max-time 45 "$base/dataset/workflow_metadata_no-content.csv" -o /tmp/external_workflows.csv
           curl -fLsS --retry 2 --max-time 45 "$base/ground-truth/manual_label.csv" -o /tmp/external_labels.csv
           sha256sum /tmp/external_workflows.csv /tmp/external_labels.csv
           python3 - <<'PY'
@@ -40,12 +41,15 @@ jobs:
           with open('/tmp/external_labels.csv',newline='',encoding='utf-8-sig') as f:
               labels=list(csv.DictReader(f))
           assert 1000<len(manifest)<5000, len(manifest)
+          assert 'workflow_file' in manifest[0] and 'repo' in manifest[0]
+          with open('/tmp/external_repositories.csv',encoding='utf-8-sig') as f:
+              repo_names=[line.strip() for line in f if line.strip()]
           assert 20<len({x['workflow'] for x in labels})<200, len(labels)
           assert all(x['weakness_type'] and x['workflow'] for x in labels)
           classes=collections.Counter(x['weakness_type'] for x in labels)
           report={'source_repository':'sparkrew/github-actions-security',
              'source_commit':'327c162df95c967d01dd34d815c6e01283f5b032',
-             'manifest_rows':len(manifest),'manual_label_rows':len(labels),
+             'manifest_rows':len(manifest),'repository_list_entries':len(repo_names),'manual_label_rows':len(labels),
              'distinct_labeled_workflows':len({x['workflow'] for x in labels}),
              'weakness_categories':dict(sorted(classes.items())),
              'does_not_label_real_release_authorization_incidents':True,
