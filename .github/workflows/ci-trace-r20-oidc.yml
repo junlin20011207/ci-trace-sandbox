@@ -56,6 +56,16 @@ jobs:
           allow=['repository','repository_id','ref','sha','workflow_ref','job_workflow_ref','repository_visibility','runner_environment']
           print('OIDC_PUBLIC_CLAIMS='+json.dumps({x:claims.get(x) for x in allow if x in claims},sort_keys=True))
           PY
+      - name: Verify ephemeral signed grants; inspect Gitee read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 20 "https://raw.githubusercontent.com/junlin20011207/ci-trace-sandbox/${GITHUB_SHA}/research/ci-trace-r20-grant-smoke.py" -o /tmp/ci-trace-r20-grant-smoke.py
+          python3 /tmp/ci-trace-r20-grant-smoke.py
+          export GIT_TERMINAL_PROMPT=0
+          timeout 30 git -c credential.helper= ls-remote https://gitee.com/liljunlin/test.git HEAD | head -n 1
+          echo "GITEE_READ_ONLY_AVAILABLE=yes"
+          echo "GITEE_PUSH_ATTEMPTED=no"
   secretless-release-fail-closed:
     runs-on: ubuntu-latest
     timeout-minutes: 5
