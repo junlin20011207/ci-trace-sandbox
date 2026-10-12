@@ -1,69 +1,22 @@
-name: Gitee Research Sync (gated, no force)
+name: Gitee Research Sync (paused pending independent publisher)
 on:
   push:
     branches:
       - research/gitee-cloud-reachability-20261012
 permissions: {}
 jobs:
-  publish-research-proof:
-    if: ${{ vars.CI_TRACE_GITEE_SYNC_ENABLE == 'true' && contains(github.event.head_commit.message, '[gitee-sync-approved]') }}
+  research-publisher-paused:
+    if: ${{ false }}
     runs-on: ubuntu-latest
-    timeout-minutes: 8
-    concurrency:
-      group: ci-trace-gitee-proof
-      cancel-in-progress: false
-    environment: gitee-research
     steps:
-      - name: Publish one approved text file into a new Gitee research branch
-        shell: bash
-        env:
-          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+      - name: Refuse release from mutable branch
         run: |
-          set -euo pipefail
-          if [ -z "${GITEE_TOKEN:-}" ]; then
-            echo "::error::Missing GITEE_TOKEN environment secret; refused to publish."
-            exit 1
-          fi
-          export GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1
-          repo=https://gitee.com/liljunlin/test.git
-          dst_ref=refs/heads/research/ci-trace-gh-bridge-20261012
-          source_url="https://raw.githubusercontent.com/junlin20011207/ci-trace-sandbox/${GITHUB_SHA}/research/gitee-bridge-payload.md"
-          workdir="${RUNNER_TEMP}/ci-trace-gitee-sync"
-          curl -fLsS --max-time 20 "$source_url" -o "${RUNNER_TEMP}/payload.md"
-          test "$(wc -c < "${RUNNER_TEMP}/payload.md")" -le 16384
-          git -c credential.helper= clone --depth 1 --single-branch --branch master "$repo" "$workdir"
-          pushd "$workdir"
-          set +e
-          git -c credential.helper= ls-remote --exit-code --heads origin "$dst_ref" >/dev/null
-          existing=$?
-          set -e
-          if [ "$existing" -eq 0 ]; then
-            echo "::error::Research target branch already exists: safe refusal to overwrite."
-            exit 1
-          elif [ "$existing" -ne 2 ]; then
-            echo "::error::Cannot verify target branch absence; refused."
-            exit 1
-          fi
-          git switch -c research/ci-trace-gh-bridge-20261012
-          mkdir -p research
-          cp "${RUNNER_TEMP}/payload.md" research/ci-trace-cloud-proof.md
-          git config user.name "CI-TRACE Research Bridge"
-          git config user.email "ci-trace-bridge@users.noreply.github.com"
-          git add -- research/ci-trace-cloud-proof.md
-          git commit -m "docs(research): add GitHub-to-Gitee cloud proof"
-          askpass="${RUNNER_TEMP}/gitee-askpass.sh"
-          cat > "$askpass" <<'ASKPASS'
-          #!/usr/bin/env bash
-          case "${1:-}" in
-            *Username*) printf '%s\n' 'oauth2' ;;
-            *Password*) printf '%s\n' "${GITEE_TOKEN:?}" ;;
-            *) exit 1 ;;
-          esac
-          ASKPASS
-          chmod 700 "$askpass"
-          export GIT_ASKPASS="$askpass"
-          git -c credential.helper= push --force-with-lease="$dst_ref:" origin "HEAD:$dst_ref"
-          printf 'gitee_publication_commit='
-          git rev-parse HEAD
-          printf 'gitee_target_ref=%s\n' "$dst_ref"
-          popd
+          echo "NO_TRUSTED_EXTERNAL_PUBLISHER=HOLD"
+          echo "GITEE_CREDENTIAL_NOT_EXPOSED_TO_RESEARCH_BRANCH=yes"
+          echo "No Git credentials or Gitee API requests are used."
+# Research-only pause. This is defense in depth, NOT a trust boundary:
+# someone who can edit a workflow can change this YAML. Never place an
+# active Gitee token in a secret accessible to this unprotected branch.
+# Production architecture needs external credential custody, a separately
+# administered verifier, and exact pinned OIDC workload identity + signed
+# release grant. See Round 20 research branch and report.
