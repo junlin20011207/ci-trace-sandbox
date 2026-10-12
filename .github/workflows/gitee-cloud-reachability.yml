@@ -1,0 +1,31 @@
+name: Gitee Cloud Reachability (Read-only Research)
+on:
+  push:
+    branches:
+      - research/gitee-cloud-reachability-20261012
+permissions: {}
+jobs:
+  verify-remote-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe Gitee from GitHub-hosted runner (without credentials)
+        shell: bash
+        run: |
+          set -u
+          export GIT_TERMINAL_PROMPT=0
+          echo "probe_source=github_actions_runner"
+          echo "target=gitee.com/liljunlin/test"
+          echo "credential_used=no"
+          echo "gitee_dns_start"
+          getent ahosts gitee.com | head -n 3
+          echo "dns_exit=${PIPESTATUS[0]}"
+          echo "gitee_https_start"
+          curl --silent --show-error --location --head --max-time 20 --output /dev/null --write-out 'gitee_http_code=%{http_code}\n' https://gitee.com/liljunlin/test
+          echo "curl_exit=$?"
+          echo "gitee_git_start"
+          timeout 25 git -c credential.helper= ls-remote https://gitee.com/liljunlin/test.git HEAD > /tmp/gitee_result.txt 2>&1
+          status=$?
+          sed -E 's#(https://)[^/@]+@#\1[redacted]@#g' /tmp/gitee_result.txt | head -n 5
+          echo "gitee_git_exit=$status"
+          echo "Result meanings: git_exit=0 readable repo; HTTP 401/403 or git authentication error means network reachable but access denied; DNS or connection error means unreachable."
