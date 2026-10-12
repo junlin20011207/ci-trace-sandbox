@@ -9,6 +9,9 @@ jobs:
     if: ${{ vars.CI_TRACE_GITEE_SYNC_ENABLE == 'true' && contains(github.event.head_commit.message, '[gitee-sync-approved]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    concurrency:
+      group: ci-trace-gitee-proof
+      cancel-in-progress: false
     environment: gitee-research
     steps:
       - name: Publish one approved text file into a new Gitee research branch
@@ -59,7 +62,7 @@ jobs:
           ASKPASS
           chmod 700 "$askpass"
           export GIT_ASKPASS="$askpass"
-          git -c credential.helper= push origin "HEAD:$dst_ref"
+          git -c credential.helper= push --force-with-lease="$dst_ref:" origin "HEAD:$dst_ref"
           printf 'gitee_publication_commit='
           git rev-parse HEAD
           printf 'gitee_target_ref=%s\n' "$dst_ref"
