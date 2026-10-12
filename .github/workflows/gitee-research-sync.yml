@@ -1,0 +1,22 @@
+name: Gitee Research Sync (paused pending independent publisher)
+on:
+  push:
+    branches:
+      - research/gitee-cloud-reachability-20261012
+permissions: {}
+jobs:
+  research-publisher-paused:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse release from mutable branch
+        run: |
+          echo "NO_TRUSTED_EXTERNAL_PUBLISHER=HOLD"
+          echo "GITEE_CREDENTIAL_NOT_EXPOSED_TO_RESEARCH_BRANCH=yes"
+          echo "No Git credentials or Gitee API requests are used."
+# Research-only pause. This is defense in depth, NOT a trust boundary:
+# someone who can edit a workflow can change this YAML. Never place an
+# active Gitee token in a secret accessible to this unprotected branch.
+# Production architecture needs external credential custody, a separately
+# administered verifier, and exact pinned OIDC workload identity + signed
+# release grant. See Round 20 research branch and report.

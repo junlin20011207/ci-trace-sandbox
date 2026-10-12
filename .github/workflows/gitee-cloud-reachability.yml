@@ -1,0 +1,101 @@
+name: Gitee Cloud Reachability (Read-only Research)
+on:
+  push:
+    branches:
+      - research/gitee-cloud-reachability-20261012
+permissions: {}
+jobs:
+  verify-remote-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe Gitee from GitHub-hosted runner (without credentials)
+        shell: bash
+        run: |
+          set -u
+          export GIT_TERMINAL_PROMPT=0
+          echo "probe_source=github_actions_runner"
+          echo "target=gitee.com/liljunlin/test"
+          echo "credential_used=no"
+          echo "gitee_dns_start"
+          getent ahosts gitee.com | head -n 3
+          echo "dns_exit=${PIPESTATUS[0]}"
+          echo "gitee_https_start"
+          curl --silent --show-error --location --head --max-time 20 --output /dev/null --write-out 'gitee_http_code=%{http_code}\n' https://gitee.com/liljunlin/test
+          echo "curl_exit=$?"
+          echo "gitee_git_start"
+          timeout 25 git -c credential.helper= ls-remote https://gitee.com/liljunlin/test.git HEAD > /tmp/gitee_result.txt 2>&1
+          status=$?
+          sed -E 's#(https://)[^/@]+@#\1[redacted]@#g' /tmp/gitee_result.txt | head -n 5
+          echo "gitee_git_exit=$status"
+          echo "Result meanings: git_exit=0 readable repo; HTTP 401/403 or git authentication error means network reachable but access denied; DNS or connection error means unreachable."
+
+      - name: Probe public Gitee repository metadata and default branch
+        shell: bash
+        run: |
+          set -u
+          export GIT_TERMINAL_PROMPT=0
+          echo "=== gitee repo metadata ==="
+          if curl -fsSL --max-time 20 https://gitee.com/api/v5/repos/liljunlin/test -o /tmp/gitee_repo_meta.json; then
+            python3 - <<'PY'
+          import json
+          p=json.load(open("/tmp/gitee_repo_meta.json",encoding="utf-8"))
+          for field in ("full_name","default_branch","private","empty_repo","size","html_url"):
+              print("gitee_"+field+"="+str(p.get(field)))
+          PY
+          else
+            echo "gitee_metadata_endpoint_failed"
+          fi
+          echo "=== git symbolic HEAD ==="
+          timeout 25 git -c credential.helper= ls-remote --symref https://gitee.com/liljunlin/test.git HEAD | head -n 5
+
+      - name: Clone Gitee and test push authorization without modifying it
+        shell: bash
+        run: |
+          set -u
+          export GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1
+          echo "=== clone-only ==="
+          timeout 45 git -c credential.helper= clone --depth 1 --quiet https://gitee.com/liljunlin/test.git /tmp/ci-trace-gitee-clone
+          clone_status=$?
+          echo "gitee_clone_exit=$clone_status"
+          if [ "$clone_status" -eq 0 ]; then
+            (
+              cd /tmp/ci-trace-gitee-clone
+              printf 'gitee_local_head='
+              git rev-parse HEAD
+              printf 'gitee_clone_branch='
+              git branch --show-current
+              echo "gitee_top_level_files_start"
+              git ls-tree --name-only HEAD | head -n 20
+              echo "gitee_push_dry_run_start"
+              set +e
+              timeout 25 git -c credential.helper= push --dry-run origin HEAD:refs/heads/research/ci-trace-cloud-sync-20261012 2>&1 | head -n 7
+              push_status=${PIPESTATUS[0]}
+              set -e
+              echo "gitee_push_dry_run_exit=$push_status"
+              echo "gitee_push_dry_run_was_non_mutating=yes"
+            )
+          fi
+
+      - name: Inspect public Gitee default-branch protection metadata
+        shell: bash
+        run: |
+          set -u
+          code=$(curl -sS -L --max-time 18 -o /tmp/gitee_branch.json -w '%{http_code}' https://gitee.com/api/v5/repos/liljunlin/test/branches/master)
+          echo "gitee_branch_api_http=$code"
+          if [ "$code" = 200 ]; then
+            python3 - <<'PY'
+          import json
+          p=json.load(open("/tmp/gitee_branch.json",encoding="utf-8"))
+          print("gitee_branch_name="+str(p.get("name")))
+          print("gitee_branch_protected="+str(p.get("protected")))
+          print("gitee_branch_sha="+str((p.get("commit") or {}).get("id")))
+          PY
+          fi
+
+      - name: Regression test two-client Git branch-creation race
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 20 "https://raw.githubusercontent.com/junlin20011207/ci-trace-sandbox/${GITHUB_SHA}/research/race-create-only.sh" -o /tmp/race-create-only.sh
+          bash /tmp/race-create-only.sh
