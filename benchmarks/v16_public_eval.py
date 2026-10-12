@@ -125,6 +125,24 @@ def evaluate(manifest, output, token):
                 rec.get("zizmor",{}).get("available"),"poutine_available":
                 rec.get("poutine",{}).get("available")}),flush=True)
     rows=summary["repositories"]
+    # Published advisory positives are labeled by attack FAMILY, not by
+    # the scanner's arbitrary number of raw findings.
+    supported={'artifact_overlay_import':'ARTIFACT_OVERLAY_IMPORT',
+               'artifact_metadata_write':'ARTIFACT_METADATA_REF_WRITE'}
+    known=[r for r in rows if r.get('advisory')]
+    summary['advisory_scope_audit']={
+        'published_advisory_repositories':len(known),
+        'tested_classes':{r['repo']:r['disclosure_class'] for r in known},
+        'v7_supported_family_cases':sum(r['disclosure_class'] in supported for r in known),
+        'v7_detected_supported_family_cases':sum(
+           supported[r['disclosure_class']] in r.get('ci_trace_v7',{}).get('rules',[])
+           for r in known if r['disclosure_class'] in supported),
+        'out_of_scope_published_cases':[
+           {'advisory':r['advisory'],'repo':r['repo'],
+            'class':r['disclosure_class']} for r in known
+           if r['disclosure_class'] not in supported],
+        'warning':'Not full security recall, not blind evaluation, and no verified negatives'
+    }
     summary["metrics"]={
        "repository_attempted":len(rows),
        "repository_fetched":sum("snapshot" in x for x in rows),
