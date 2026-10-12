@@ -1,0 +1,103 @@
+name: CI-TRACE V15 two-runner signed-data relay (experimental)
+on:
+  push:
+    branches:
+      - feature/ci-trace-v15-effect-recovery
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  issuer:
+    runs-on: ubuntu-22.04
+    outputs:
+      public_key: ${{ steps.sign.outputs.public_key }}
+      issuer_os: ${{ steps.sign.outputs.issuer_os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements.txt
+      - name: Ephemeral test-only signing key (no production issuer)
+        id: sign
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,shutil,tempfile
+          from pathlib import Path
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          from cryptography.hazmat.primitives import serialization
+          from ci_trace.approval_v14 import ApprovalLedger,ProtectedIssuer
+          payload=b'CI-TRACE V15 cross-runner inert signed data\n'
+          private=Path(tempfile.mkdtemp(prefix='v15-issuer-'))
+          private.chmod(0o700)
+          ledger=ApprovalLedger(private/'ledger.sqlite')
+          key=Ed25519PrivateKey.generate()
+          pub=key.public_key().public_bytes(
+              serialization.Encoding.Raw,serialization.PublicFormat.Raw).hex()
+          subject={'repository':os.environ['REPO'],'run_id':1,'artifact_id':1,
+                   'commit_sha':'a'*40,'content_sha256':hashlib.sha256(payload).hexdigest(),
+                   'recipient':'spiffe://research.example/consumer'}
+          grant=ProtectedIssuer(ledger,key,'ephemeral-demo',[subject]).issue(subject,ttl=300)
+          out=Path('v15_relay');out.mkdir(exist_ok=True)
+          (out/'grant.json').write_text(json.dumps(grant))
+          (out/'payload.bin').write_bytes(payload)
+          version=dict(line.strip().split('=',1) for line in
+                       Path('/etc/os-release').read_text().splitlines() if '=' in line)['VERSION_ID'].strip('"')
+          assert version.startswith('22.04'),version
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write('public_key='+pub+'\n')
+              f.write('issuer_os='+version+'\n')
+          shutil.rmtree(private)
+          print(json.dumps({'issuer_runner_os':version,'test_only':True,'payload_bytes':len(payload)}))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v15-demo-inert-only
+          path: v15_relay/
+          retention-days: 1
+  consumer:
+    needs: issuer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: v15-demo-inert-only
+          path: v15_relay/
+      - name: Verify signed grant and bytes across different GitHub-hosted runner OS
+        env:
+          TRUSTED_TEST_PUBLIC_KEY_FROM_PREVIOUS_JOB: ${{ needs.issuer.outputs.public_key }}
+          ISSUER_RUNNER_OS: ${{ needs.issuer.outputs.issuer_os }}
+        run: |
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          from ci_trace.approval_v14 import verify_signed_grant
+          grant=json.loads(Path('v15_relay/grant.json').read_text())
+          data=Path('v15_relay/payload.bin').read_bytes()
+          subject=verify_signed_grant(grant,
+              {'ephemeral-demo':os.environ['TRUSTED_TEST_PUBLIC_KEY_FROM_PREVIOUS_JOB']})
+          assert data==b'CI-TRACE V15 cross-runner inert signed data\n'
+          assert hashlib.sha256(data).hexdigest()==subject['content_sha256']
+          assert subject['recipient']=='spiffe://research.example/consumer'
+          version=dict(line.strip().split('=',1) for line in
+                       Path('/etc/os-release').read_text().splitlines() if '=' in line)['VERSION_ID'].strip('"')
+          assert os.environ['ISSUER_RUNNER_OS'].startswith('22.04')
+          assert version.startswith('24.04')
+          print(json.dumps({'two_distinct_github_runner_os':True,
+              'issuer_os':os.environ['ISSUER_RUNNER_OS'],'consumer_os':version,
+              'relay':'GitHub artifact store-and-forward',
+              'signed_inert_bytes_verified':len(data),
+              'online_cross_host_mtls':False,
+              'production_independent_signer':False}))
+          PY
