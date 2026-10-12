@@ -1,3 +1,17 @@
+## V15 — Crash-recoverable inert receipt effect and key-isolated issuer (research only)
+
+[Draft PR #15](https://github.com/junlin20011207/ci-trace-sandbox/pull/15) · [ROUND15_REPORT.md](ROUND15_REPORT.md)
+
+- \`ci_trace/effect_v15.py\` — atomic SQLite signed-grant data receipt + idempotency on retry; does **not** claim exactly-once external side effects.
+- \`ci_trace/revocation_v15.py\` — key revocation and grant reservation in one SQLite transaction, closing a check/use gap observed in V14.
+- \`ci_trace/issuer_agent_v15.py\` — Linux per-message credential-checked signing service; intended as a different OS principal, with test-only signing keys.
+- \`benchmarks/v15_effects.py\` — 12 independent grants × 100 concurrent attempts; asserts exactly 12 inert SQLite receipts and 1,188 deduplicated attempts.
+- \`.github/workflows/v15-two-runner-relay.yml\` — real Ubuntu 22.04 and 24.04 hosted-runner signed-data Artifact *store-and-forward* demonstration. Not a live two-server mTLS deployment.
+
+Reproduce: \`python -m pytest -q\` and \`python -m benchmarks.v15_effects\`. Protected independent organization approver, real business integration, same-UID hardware-backed key secrecy, independent prospective sample evaluation and self-managed cross-machine deployment remain **unverified**.
+
+---
+
 ## V13 — Protected single-use artifact authorization broker (research)
 
 [Draft PR #11](https://github.com/junlin20011207/ci-trace-sandbox/pull/11) · [ROUND13_REPORT.md](ROUND13_REPORT.md)
