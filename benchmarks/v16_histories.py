@@ -37,7 +37,7 @@ def fetch():
 def extract_csv(raw):
     while raw.startswith(b'\x1f\x8b'):
         raw=gzip.decompress(raw)
-    return raw.decode('utf8-sig')
+    return raw.decode('utf-8-sig')
 
 def candidates(text):
     stream=io.StringIO(text)
