@@ -85,6 +85,11 @@ jobs:
           echo 'Gitee public refs under read-only anonymous access:'
           git -c credential.helper= ls-remote https://gitee.com/liljunlin/test.git HEAD refs/heads/master | tee /tmp/gitee-public-refs.txt
           test -s /tmp/gitee-public-refs.txt
-          awk '{if ($1 !~ /^[0-9a-f]{40}$/) invalid=1; found=1} END {if (!found || invalid) exit 1}' /tmp/gitee-public-refs.txt || true
+          python3 - <<'PY'
+          import re
+          records=[line.split() for line in open('/tmp/gitee-public-refs.txt') if line.strip()]
+          assert records and all(len(x)==2 and re.fullmatch(r'[0-9a-f]{40}',x[0]) and x[1] in ('HEAD','refs/heads/master') for x in records),records
+          print('GITEE_PUBLIC_GIT_SHA40_REFS_VALIDATED=yes')
+          PY
           echo 'GITEE_REAL_READ_ONLY_ACCESS=yes'
           echo 'GITEE_NO_PUSH_NO_TOKEN=yes'
