@@ -29,3 +29,22 @@ jobs:
           sed -E 's#(https://)[^/@]+@#\1[redacted]@#g' /tmp/gitee_result.txt | head -n 5
           echo "gitee_git_exit=$status"
           echo "Result meanings: git_exit=0 readable repo; HTTP 401/403 or git authentication error means network reachable but access denied; DNS or connection error means unreachable."
+
+      - name: Probe public Gitee repository metadata and default branch
+        shell: bash
+        run: |
+          set -u
+          export GIT_TERMINAL_PROMPT=0
+          echo "=== gitee repo metadata ==="
+          if curl -fsSL --max-time 20 https://gitee.com/api/v5/repos/liljunlin/test -o /tmp/gitee_repo_meta.json; then
+            python3 - <<'PY'
+          import json
+          p=json.load(open("/tmp/gitee_repo_meta.json",encoding="utf-8"))
+          for field in ("full_name","default_branch","private","empty_repo","size","html_url"):
+              print("gitee_"+field+"="+str(p.get(field)))
+          PY
+          else
+            echo "gitee_metadata_endpoint_failed"
+          fi
+          echo "=== git symbolic HEAD ==="
+          timeout 25 git -c credential.helper= ls-remote --symref https://gitee.com/liljunlin/test.git HEAD | head -n 5
