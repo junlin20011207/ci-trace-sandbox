@@ -98,3 +98,26 @@ ReceiptSink(x['sink']).apply(x['grant'],x['pub'],'spiffe://research.test/consume
     assert ReceiptSink(sink.path).count()==1
     assert sink.apply(token,pub,SUBJECT['recipient'],PAYLOAD,ledger,now=now)['replayed']
     assert sink.count()==1
+
+
+@pytest.mark.skipif(os.geteuid()!=0,reason='requires disposable root runner for UID isolation')
+def test_root_protected_signer_private_key_not_readable_by_app_uid(tmp_path):
+    import tempfile,shutil
+    top=Path(tempfile.mkdtemp(prefix='ci-v15-rootkey-',dir='/tmp'))
+    top.chmod(0o755)
+    try:
+        protected=top/'signer';protected.mkdir(mode=0o700)
+        key=protected/'private.key';key.write_bytes(b'TEST ONLY - NO LIVE PRIVATE KEY')
+        key.chmod(0o600)
+        def drop():
+            os.setgid(65534);os.setuid(65534)
+        program='''import sys
+try:open(sys.argv[1],"rb").read();sys.exit(10)
+except (OSError,PermissionError):sys.exit(0)
+'''
+        child=subprocess.run([sys.executable,'-c',program,str(key)],
+                             preexec_fn=drop,capture_output=True,text=True)
+        assert child.returncode==0,child.stderr
+        assert key.read_bytes().startswith(b'TEST ONLY')
+    finally:
+        shutil.rmtree(top)
