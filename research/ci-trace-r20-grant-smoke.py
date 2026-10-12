@@ -7,7 +7,7 @@ import json,time,copy,hashlib
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
 from cryptography.exceptions import InvalidSignature
-DOMAIN=b'CI-TRACE:R20:RELEASE-GRANT:V1\\x00'
+DOMAIN=b'CI-TRACE:R20:RELEASE-GRANT:V1\x00'
 BOUND=('repository_id','repository','source_sha','source_workflow_ref',
        'artifact_sha256','gitee_repo','target_ref','target_base_sha',
        'operation_id','approver_policy_id')
