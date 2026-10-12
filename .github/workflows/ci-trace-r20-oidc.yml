@@ -125,7 +125,7 @@ jobs:
               assert not (victim/'payload.txt').exists()
               print('SYMLINK_DIRECTORY_NOFOLLOW_BLOCKED=yes')
               try:
-                  b'\\xff\\xfe'.decode('utf-8')
+                  bytes([255,254]).decode('utf-8')
                   raise AssertionError('binary accepted as UTF-8')
               except UnicodeDecodeError:
                   print('INVALID_UTF8_REJECTED_BEFORE_PUBLISH=yes')
