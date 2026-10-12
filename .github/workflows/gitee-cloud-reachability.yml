@@ -68,7 +68,11 @@ jobs:
               echo "gitee_top_level_files_start"
               git ls-tree --name-only HEAD | head -n 20
               echo "gitee_push_dry_run_start"
+              set +e
               timeout 25 git -c credential.helper= push --dry-run origin HEAD:refs/heads/research/ci-trace-cloud-sync-20261012 2>&1 | head -n 7
-              echo "gitee_push_dry_run_exit=${PIPESTATUS[0]}"
+              push_status=${PIPESTATUS[0]}
+              set -e
+              echo "gitee_push_dry_run_exit=$push_status"
+              echo "gitee_push_dry_run_was_non_mutating=yes"
             )
           fi
