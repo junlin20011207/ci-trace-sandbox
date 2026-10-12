@@ -79,6 +79,57 @@ jobs:
           bash /tmp/ci-trace-r21-guardrails.sh
           echo "NO_GITEE_CREDENTIAL_USED=yes"
           echo "REAL_GITEE_WRITE=no"
+  git-tree-and-symlink-redteam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions: {}
+    steps:
+      - name: Reproduce unauthorized extra-tree file and block symlink writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,subprocess,tempfile
+          from pathlib import Path
+          def git(*args,cwd=None):
+              return subprocess.check_output(['git',*args],cwd=cwd,stderr=subprocess.DEVNULL,text=True).strip()
+          with tempfile.TemporaryDirectory() as temp:
+              root=Path(temp); bare=root/'remote.git';work=root/'work'
+              git('init','--bare',str(bare))
+              git('clone',str(bare),str(work))
+              git('-C',str(work),'config','user.name','R21 Lab')
+              git('-C',str(work),'config','user.email','r21lab@example.invalid')
+              (work/'README.md').write_text('base')
+              git('-C',str(work),'add','.')
+              git('-C',str(work),'commit','-m','base')
+              git('-C',str(work),'push','origin','HEAD:master')
+              (work/'research').mkdir()
+              (work/'research'/'payload.txt').write_text('approved')
+              (work/'unauthorized.txt').write_text('UNAPPROVED')
+              git('-C',str(work),'add','.')
+              git('-C',str(work),'commit','-m','CI-TRACE-R21 operation=op1234567')
+              commit=git('-C',str(work),'rev-parse','HEAD')
+              delta=git('--git-dir',str(bare),'diff-tree','--no-commit-id','--name-only','-r',commit).splitlines()
+              assert sorted(delta)==['research/payload.txt','unauthorized.txt']
+              assert delta!=['research/payload.txt']
+              print('UNAPPROVED_EXTRA_TREE_CHANGE_DETECTED=yes')
+              victim=root/'victim';victim.mkdir()
+              parent=root/'candidate';parent.mkdir()
+              (parent/'research').symlink_to(victim,target_is_directory=True)
+              try:
+                  os.open(parent/'research',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+                  raise AssertionError('symbolic link was followed')
+              except OSError:
+                  pass
+              assert not (victim/'payload.txt').exists()
+              print('SYMLINK_DIRECTORY_NOFOLLOW_BLOCKED=yes')
+              try:
+                  b'\\xff\\xfe'.decode('utf-8')
+                  raise AssertionError('binary accepted as UTF-8')
+              except UnicodeDecodeError:
+                  print('INVALID_UTF8_REJECTED_BEFORE_PUBLISH=yes')
+          PY
+          echo "GITEE_PUSH_ATTEMPTED=no"
   secretless-release-fail-closed:
     runs-on: ubuntu-latest
     timeout-minutes: 5
