@@ -46,6 +46,10 @@ def sample_rows(path):
                 data=json.loads(line)
                 repo=data.get("_id") or (data.get("repo") or {}).get("name")
                 sha=(data.get("repo") or {}).get("lastCommitSHA")
+                # Metadata contains a much larger candidate pool than the
+                # ~25k selected GHALogs repositories. Filter at source.
+                if data.get("selected") is not True or not data.get("nb_workflows",0):
+                    continue
                 if (not isinstance(repo,str) or repo.count('/')!=1 or
                     not isinstance(sha,str) or len(sha)!=40):continue
             except (ValueError,AttributeError):continue
@@ -69,7 +73,7 @@ def main():
             source=Path(root)/'repositories.json.gz'
             progress['downloaded_bytes']=download_verified(source)
             rows,eligible=sample_rows(source)
-            progress['eligible_repo_metadata_records']=eligible
+            progress['eligible_selected_unique_repositories']=eligible
             manifest={'selection':'deterministic uniform reservoir over qualifying GHALogs 2025 historical repository metadata, no workflow security labels',
                       'sources':rows,'max_workflows_per_repo':6}
             (result/'v16_ghalogs_sample_manifest.json').write_text(
