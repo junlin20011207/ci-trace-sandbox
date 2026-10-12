@@ -1,0 +1,194 @@
+name: CI-TRACE R22 Independent Evidence (no deployment)
+on:
+  push:
+    branches:
+      - research/ci-trace-r22-product-evidence-20261012
+permissions: {}
+jobs:
+  hosted-git-guardrails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions: {}
+    steps:
+      - name: Verify actual Git race and online SQLite reservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --max-time 25 "https://raw.githubusercontent.com/junlin20011207/ci-trace-sandbox/${GITHUB_SHA}/research/ci-trace-r21-guardrail-smoke.sh" -o /tmp/guardrails.sh
+          bash /tmp/guardrails.sh
+          export GIT_TERMINAL_PROMPT=0
+          git -c credential.helper= ls-remote https://gitee.com/liljunlin/test.git HEAD | head -n 1
+          echo "GITEE_READ_ONLY_VERIFIED=yes"
+          echo "GITEE_PUSH_ATTEMPTED=no"
+  third-party-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions: {}
+    steps:
+      - name: Recalculate external paper dataset sample counts from immutable revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://raw.githubusercontent.com/sparkrew/github-actions-security/327c162df95c967d01dd34d815c6e01283f5b032
+          curl -fLsS --retry 2 --max-time 45 "$base/dataset/workflow_list.csv" -o /tmp/external_repositories.csv
+          curl -fLsS --retry 2 --max-time 45 "$base/dataset/workflow_metadata_no-content.csv" -o /tmp/external_workflows.csv
+          curl -fLsS --retry 2 --max-time 45 "$base/ground-truth/manual_label.csv" -o /tmp/external_labels.csv
+          sha256sum /tmp/external_workflows.csv /tmp/external_labels.csv
+          python3 - <<'PY'
+          import csv,collections,json,hashlib
+          with open('/tmp/external_workflows.csv',newline='',encoding='utf-8-sig') as f:
+              manifest=list(csv.DictReader(f))
+          with open('/tmp/external_labels.csv',newline='',encoding='utf-8-sig') as f:
+              labels=list(csv.DictReader(f))
+          assert 1000<len(manifest)<5000, len(manifest)
+          assert 'workflow_file' in manifest[0] and 'repo' in manifest[0]
+          with open('/tmp/external_repositories.csv',encoding='utf-8-sig') as f:
+              repo_names=[line.strip() for line in f if line.strip()]
+          assert 20<len({x['workflow'] for x in labels})<200, len(labels)
+          assert all(x['weakness_type'] and x['workflow'] for x in labels)
+          classes=collections.Counter(x['weakness_type'] for x in labels)
+          report={'source_repository':'sparkrew/github-actions-security',
+             'source_commit':'327c162df95c967d01dd34d815c6e01283f5b032',
+             'manifest_rows':len(manifest),'repository_list_entries':len(repo_names),'manual_label_rows':len(labels),
+             'distinct_labeled_workflows':len({x['workflow'] for x in labels}),
+             'weakness_categories':dict(sorted(classes.items())),
+             'does_not_label_real_release_authorization_incidents':True,
+             'licensing_note':'Aggregate-only analysis. Underlying rights and reuse terms must be checked separately.'}
+          print('EXTERNAL_DATA_AGGREGATE='+json.dumps(report,sort_keys=True))
+          with open('external_aggregate.json','w') as g:json.dump(report,g,indent=2)
+          PY
+  third-party-pr-approvals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - name: Inspect real public third-party PR review events (no personal identities retained)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,urllib.request,collections,time
+          token=os.environ['GH_TOKEN']
+          def api(uri):
+              req=urllib.request.Request(
+                 'https://api.github.com'+uri,
+                 headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json',
+                          'X-GitHub-Api-Version':'2022-11-28','User-Agent':'CI-TRACE-R22-public-review-study'})
+              with urllib.request.urlopen(req,timeout=20) as r:return json.load(r)
+          result={'source':'real_public_GitHub_PR_review_events',
+                  'based_on_real_reviews_not_business_delivery_approvals':True,'repos':[]}
+          for repo in ['pallets/flask','nodejs/node','rust-lang/rust']:
+              pulls=api('/repos/'+repo+'/pulls?state=closed&per_page=40')
+              merged=[p for p in pulls if p.get('merged_at')][:12]
+              approved=0;changes=0;no_review=0;total_review=0
+              for p in merged:
+                  reviews=api('/repos/'+repo+'/pulls/'+str(p['number'])+'/reviews?per_page=100')
+                  st=[r.get('state') for r in reviews]
+                  approved+=int('APPROVED' in st)
+                  changes+=int('CHANGES_REQUESTED' in st)
+                  no_review+=int(not st)
+                  total_review+=len(st)
+              row={'repository':repo,'merged_pr_samples':len(merged),
+                'prs_with_approved_events':approved,'prs_with_changes_requested_events':changes,
+                'prs_with_no_review_events':no_review,'total_review_events':total_review}
+              result['repos'].append(row)
+          print('REAL_THIRD_PARTY_PR_REVIEWS='+json.dumps(result,sort_keys=True))
+          with open('external_public_pr_reviews.json','w') as file:json.dump(result,file,indent=2)
+          PY
+  tlc-formal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    permissions: {}
+    steps:
+      - name: Download immutable specification and official TLA+ TLC v1.7.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 2 --max-time 30 "https://raw.githubusercontent.com/junlin20011207/ci-trace-sandbox/${GITHUB_SHA}/research/r22/CITraceR22.tla" -o CITraceR22.tla
+          curl -fLsS --retry 2 --max-time 30 "https://raw.githubusercontent.com/junlin20011207/ci-trace-sandbox/${GITHUB_SHA}/research/r22/CITraceR22.cfg" -o CITraceR22.cfg
+          curl -fLsS --retry 2 --max-time 50 "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar" -o tla2tools.jar
+          java -cp tla2tools.jar tla2sany.SANY CITraceR22.tla
+          java -cp tla2tools.jar tlc2.TLC -workers 2 -config CITraceR22.cfg CITraceR22.tla | tee tlc-r22.log
+          grep -q 'Model checking completed. No error has been found.' tlc-r22.log
+          echo "TLC_FORMAL_INVARIANTS=PASSED"
+  sigstore-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    permissions:
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+      contents: read
+    steps:
+      - name: Create non-secret research evidence subject
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os,json,hashlib
+          metadata={'purpose':'ci-trace-r22-research-artifact-attestation',
+                    'repository':os.environ['GITHUB_REPOSITORY'],
+                    'source_sha':os.environ['GITHUB_SHA'],
+                    'claim':'signed workload origin, NOT independently-approved Gitee publication',
+                    'credentials_used':'NONE','real_gitee_publish':False,
+                    'authority':'LAB-ONLY'}
+          with open('ci-trace-r22-evidence.json','w') as f:json.dump(metadata,f,sort_keys=True,indent=2)
+          print('ARTIFACT_SHA256='+hashlib.sha256(open('ci-trace-r22-evidence.json','rb').read()).hexdigest())
+          PY
+      - name: Transfer attested subject to distinct hosted runner
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-trace-r22-evidence
+          path: ci-trace-r22-evidence.json
+          retention-days: 5
+      - name: Sign workload provenance with GitHub Sigstore integration
+        uses: actions/attest@v4
+        with:
+          subject-path: ci-trace-r22-evidence.json
+      - name: Independently verify attestation with gh CLI
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation verify ci-trace-r22-evidence.json --repo "$GITHUB_REPOSITORY" | head -n 45
+          echo 'SIGSTORE_PROVENANCE_VERIFIED=yes'
+
+  cross-runner-signed-transfer:
+    needs: sigstore-provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - name: Download signed subject created by a DIFFERENT runner
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-trace-r22-evidence
+      - name: Verify source digest and exact signer identity on second machine
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          issuer="https://github.com/$GITHUB_REPOSITORY/.github/workflows/ci-trace-r22-evidence.yml@$GITHUB_REF"
+          gh attestation verify ci-trace-r22-evidence.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --cert-identity "$issuer" \
+            --source-digest "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners
+          echo "SECOND_MACHINE_SIGNED_PROVENANCE_VERIFIED=yes"
+          cp ci-trace-r22-evidence.json /tmp/original.json
+          printf '\nmodified\n' >> ci-trace-r22-evidence.json
+          set +e
+          gh attestation verify ci-trace-r22-evidence.json --repo "$GITHUB_REPOSITORY" > /tmp/tamper-attempt.log 2>&1
+          denied=$?
+          set -e
+          test "$denied" -ne 0
+          echo "TAMPERED_ARTIFACT_REJECTED=yes"
+          test "$(sha256sum /tmp/original.json | cut -d ' ' -f1)" != "$(sha256sum ci-trace-r22-evidence.json | cut -d ' ' -f1)"
+          echo "NO_INDEPENDENT_BUSINESS_APPROVAL=HOLD"
