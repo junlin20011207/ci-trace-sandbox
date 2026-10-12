@@ -48,3 +48,27 @@ jobs:
           fi
           echo "=== git symbolic HEAD ==="
           timeout 25 git -c credential.helper= ls-remote --symref https://gitee.com/liljunlin/test.git HEAD | head -n 5
+
+      - name: Clone Gitee and test push authorization without modifying it
+        shell: bash
+        run: |
+          set -u
+          export GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1
+          echo "=== clone-only ==="
+          timeout 45 git -c credential.helper= clone --depth 1 --quiet https://gitee.com/liljunlin/test.git /tmp/ci-trace-gitee-clone
+          clone_status=$?
+          echo "gitee_clone_exit=$clone_status"
+          if [ "$clone_status" -eq 0 ]; then
+            (
+              cd /tmp/ci-trace-gitee-clone
+              printf 'gitee_local_head='
+              git rev-parse HEAD
+              printf 'gitee_clone_branch='
+              git branch --show-current
+              echo "gitee_top_level_files_start"
+              git ls-tree --name-only HEAD | head -n 20
+              echo "gitee_push_dry_run_start"
+              timeout 25 git -c credential.helper= push --dry-run origin HEAD:refs/heads/research/ci-trace-cloud-sync-20261012 2>&1 | head -n 7
+              echo "gitee_push_dry_run_exit=${PIPESTATUS[0]}"
+            )
+          fi
