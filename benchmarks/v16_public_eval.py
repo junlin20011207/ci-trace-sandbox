@@ -33,6 +33,8 @@ def api_get(path, token):
 def fetch_repo(repo,ref,required,maximum,token,root):
     owner,name=repo.split("/")
     base=f"/repos/{owner}/{name}"
+    if ref=="DEFAULT":
+        ref=api_get(base,token)["default_branch"]
     c=api_get(base+"/commits/"+ref,token)
     commit=c["sha"]
     items=api_get(base+"/contents/.github/workflows?ref="+commit,token)
