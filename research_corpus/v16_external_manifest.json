@@ -65,7 +65,7 @@
     },
     {
       "repo": "D2KLab/gha-dataset",
-      "ref": "main",
+      "ref": "master",
       "advisory": null,
       "class": "unlabeled",
       "required": []
