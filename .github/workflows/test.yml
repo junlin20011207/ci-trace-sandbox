@@ -32,6 +32,7 @@ jobs:
       - run: python -m benchmarks.v11_cost
       - run: python -m benchmarks.v12_ipc --trials 30
       - run: python -m benchmarks.v13_redeem
+      - run: python -m benchmarks.v15_faults --cases 300
       - name: Distinct Linux UIDs and protected issuer IPC (hosted Ubuntu)
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
