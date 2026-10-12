@@ -36,5 +36,5 @@ jobs:
       - name: Distinct Linux UIDs and protected issuer IPC (hosted Ubuntu)
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
-          sudo -n env PYTHONPATH="$PWD" "$(command -v python)" -m pytest -q tests/test_issuer_broker_v13.py
+          sudo -n env PYTHONPATH="$PWD" "$(command -v python)" -m pytest -q tests/test_issuer_broker_v13.py tests/test_signer_isolation_v15.py
       - run: python -m ci_trace.scanner_v7 .github/workflows
