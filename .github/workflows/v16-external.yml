@@ -76,6 +76,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python -m benchmarks.v16_histories
+      - name: Archive reproducible scanner and experiment source (no downloaded third-party code)
+        if: always()
+        run: |
+          tar -czf results/v16_reproduction_source.tgz ci_trace benchmarks \
+            research_corpus/v16_external_manifest.json requirements.txt \
+            .github/workflows/v16-external.yml
       - name: Preserve machine-readable source SHA, missingness and scanner findings
         if: always()
         uses: actions/upload-artifact@v4
