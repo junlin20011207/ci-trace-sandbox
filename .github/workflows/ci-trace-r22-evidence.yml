@@ -80,7 +80,7 @@ jobs:
               with urllib.request.urlopen(req,timeout=20) as r:return json.load(r)
           result={'source':'real_public_GitHub_PR_review_events',
                   'based_on_real_reviews_not_business_delivery_approvals':True,'repos':[]}
-          for repo in ['pallets/flask','nodejs/node']:
+          for repo in ['pallets/flask','nodejs/node','rust-lang/rust']:
               pulls=api('/repos/'+repo+'/pulls?state=closed&per_page=40')
               merged=[p for p in pulls if p.get('merged_at')][:12]
               approved=0;changes=0;no_review=0;total_review=0
