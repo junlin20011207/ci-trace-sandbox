@@ -26,6 +26,10 @@ def subject():
       'recipient':'spiffe://ci-trace.test/receiver',
       'effect_name':'increment_inert_counter','effect_value':1,'epoch':0}
 
+def boot_identity():
+    # Linux per-boot kernel UUID, independent of templated cloud hostnames.
+    return Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+
 def attestation(role):
     assert role in ROLES
     sk=Ed25519PrivateKey.generate()
@@ -33,7 +37,9 @@ def attestation(role):
         serialization.PublicFormat.Raw).hex()
     record=subject()
     return {'role':role,'subject':record,
-       'runner_hostname':socket.gethostname(),'runner_name':os.environ.get('RUNNER_NAME',''),
+       'runner_hostname':socket.gethostname(),
+       'boot_id_hash':hashlib.sha256(boot_identity().encode()).hexdigest(),
+       'runner_name':os.environ.get('RUNNER_NAME',''),
        'key_id':role+'-ephemeral-only','public_hex':pb,
        'signature':base64.b64encode(sk.sign(canonical(record))).decode()}
 
@@ -48,8 +54,10 @@ def verify(folder):
     expected=subject()
     assert all(p['subject']==expected for p in assertions)
     hosts=[p['runner_hostname'] for p in assertions]
+    boots=[p['boot_id_hash'] for p in assertions]
+    my_boot=hashlib.sha256(boot_identity().encode()).hexdigest()
     me=socket.gethostname()
-    assert len(set(hosts+[me]))==3, 'GitHub runner hosts not independent'
+    assert len(set(boots+[my_boot]))==3, 'GitHub runner kernel boots not independent'
     trust={p['role']:{'key_id':p['key_id'],'public_hex':p['public_hex']} for p in assertions}
     proof={'subject':expected,'signatures':{p['role']:{
           'key_id':p['key_id'],'signature':p['signature']} for p in assertions}}
@@ -60,7 +68,8 @@ def verify(folder):
         for _ in range(30):sink.execute(proof,trust,expected)
         assert sink.inspect()['value']==sink.inspect()['effects']==1
     print(json.dumps({'security_runner':hosts[0],'release_runner':hosts[1],
-       'verification_runner':me,'three_distinct_runner_hosts':True,
+       'verification_runner':me,'three_distinct_boot_instances':True,
+       'boot_hash_prefixes':[b[:12] for b in boots+[my_boot]],
        'two_ephemeral_signatures_verified':True,
        'effect_count_after_30_retries':1,
        'not_a_production_authority':True},sort_keys=True))
