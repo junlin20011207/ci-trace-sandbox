@@ -1,8 +1,8 @@
-name: CI-TRACE R20 OIDC Identity Research (no deployment)
+name: CI-TRACE R21 Identity and Fenced Publish (no deployment)
 on:
   push:
     branches:
-      - research/ci-trace-r20-authority-20261012
+      - research/ci-trace-r21-fenced-publish-20261012
 permissions: {}
 jobs:
   oidc-proof:
@@ -23,7 +23,7 @@ jobs:
           from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
           from cryptography.hazmat.primitives.hashes import SHA256
           def b64(x): return base64.urlsafe_b64decode(x+'='*(-len(x)%4))
-          aud='ci-trace-round20-research-only'
+          aud='ci-trace-round21-research-only'
           requrl=os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']
           sep='&' if '?' in requrl else '?'
           url=requrl+sep+urllib.parse.urlencode({'audience':aud})
@@ -48,7 +48,7 @@ jobs:
           assert str(claims.get('repository_id'))==os.environ['GITHUB_REPOSITORY_ID']
           assert claims.get('ref')==os.environ['GITHUB_REF']
           assert claims.get('sha')==os.environ['GITHUB_SHA']
-          assert claims.get('workflow_ref')=='junlin20011207/ci-trace-sandbox/.github/workflows/ci-trace-r20-oidc.yml@refs/heads/research/ci-trace-r20-authority-20261012'
+          assert claims.get('workflow_ref')=='junlin20011207/ci-trace-sandbox/.github/workflows/ci-trace-r20-oidc.yml@refs/heads/research/ci-trace-r21-fenced-publish-20261012'
           print('OIDC_JWKS_SIGNATURE_VERIFIED=yes')
           print('OIDC_ISSUER_AUDIENCE_VERIFIED=yes')
           print('OIDC_REPOSITORY_REF_SHA_BOUND=yes')
@@ -66,6 +66,19 @@ jobs:
           timeout 30 git -c credential.helper= ls-remote https://gitee.com/liljunlin/test.git HEAD | head -n 1
           echo "GITEE_READ_ONLY_AVAILABLE=yes"
           echo "GITEE_PUSH_ATTEMPTED=no"
+  fence-protocol-guardrails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions: {}
+    steps:
+      - name: Run independently invoked Git create-only and online reservation smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 20 "https://raw.githubusercontent.com/junlin20011207/ci-trace-sandbox/${GITHUB_SHA}/research/ci-trace-r21-guardrail-smoke.sh" -o /tmp/ci-trace-r21-guardrails.sh
+          bash /tmp/ci-trace-r21-guardrails.sh
+          echo "NO_GITEE_CREDENTIAL_USED=yes"
+          echo "REAL_GITEE_WRITE=no"
   secretless-release-fail-closed:
     runs-on: ubuntu-latest
     timeout-minutes: 5
