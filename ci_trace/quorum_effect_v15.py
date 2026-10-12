@@ -147,3 +147,9 @@ def load_protected_policy(path,workspace):
              'protected_policy_schema_invalid')
     canonical(config['expected_subject'])
     return config
+
+
+def execute_with_protected_roots(sink,proof,pinned_policy_file,untrusted_workspace):
+    """Trusted service chooses protected roots; no peer-provided trust or subject."""
+    policy=load_protected_policy(pinned_policy_file,untrusted_workspace)
+    return sink.execute(proof,policy['trust'],policy['expected_subject'])
