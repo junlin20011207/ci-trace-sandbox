@@ -1,3 +1,17 @@
+## V15 — two-role approval quorum + recoverable exactly-once database effect
+
+[Draft PR #16](https://github.com/junlin20011207/ci-trace-sandbox/pull/16) · [ROUND15_REPORT.md](ROUND15_REPORT.md)
+
+Extends V14's single-signer `uncertain` state with **two distinct Ed25519 approval roles** and an **idempotent, inert SQLite business sink**. A protected root-policy defines both signer public keys and the exact approved source+operation; the sink atomically records a unique operation effect and receipt. After response loss, retry returns the previous receipt without incrementing again.
+
+Three independently booted GitHub-hosted runner jobs sign an ephemeral **test-only** subject and verify the transferred signatures asynchronously; the public keys in this demonstration travel with signatures, so it is NOT production independent approval. Linux distinct-UID signer-custody tests show that different UIDs block cross-key reads but same-UID ordinary `0600` keys can be stolen.
+
+Reproduce: `python -m pytest -q`, `python -m benchmarks.v15_faults --cases 300`, `python -m benchmarks.v15_v14_delta`.
+
+**Security boundaries:** exactly-once effect is established only for the same SQLite transaction resource, not Git push or an external service. True protected human approval, hardware-backed keys, cross-host live mutual TLS and blind business-scale evaluation remain open.
+
+---
+
 ## V13 — Protected single-use artifact authorization broker (research)
 
 [Draft PR #11](https://github.com/junlin20011207/ci-trace-sandbox/pull/11) · [ROUND13_REPORT.md](ROUND13_REPORT.md)

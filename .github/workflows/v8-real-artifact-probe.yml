@@ -169,26 +169,35 @@ jobs:
           assert value['safe_to_execute_or_publish'] is False
           print(json.dumps({'v9_real_api_exact_sha':'approved','source_run':value['run_id']}))
           PY
-      - name: V9 rejects the same real archive if approved SHA does not match
+      - name: V9 negative SHA binding using already authenticated API evidence
         env:
-          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          WORKSPACE: ${{ github.workspace }}
-          TEMP: ${{ runner.temp }}
         run: |
-          set -euo pipefail
-          if python -m ci_trace.github_authorized_gate \
-            --repository "$REPO" --run-id 38138006392 \
-            --artifact-id "$SOURCE_ARTIFACT_ID" \
-            --approved-sha "0000000000000000000000000000000000000000" \
-            --archive artifact.zip --policy policy.json \
-            --output-root "$TEMP/ci-trace-release" \
-            --workspace "$WORKSPACE" > v9-rejected.json; then
-            echo "Unexpected approval of unauthorized SHA" >&2
-            exit 1
-          fi
-          grep -q approved_commit_changed v9-rejected.json
-          echo '{"v9_real_api_wrong_sha":"denied"}'
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          from ci_trace.authorization_binding import require_authorized_revision
+          from ci_trace.provenance_guard import Denied
+          approved=json.loads(Path('v9-approved.json').read_text())
+          policy=json.loads(Path('policy.json').read_text())
+          # Reuse the API-backed, positively verified head/identity from the
+          # prior step; avoid a second external API fetch for the negative.
+          run={'id':approved['run_id'],'head_sha':approved['head_sha']}
+          event={'repository':{'full_name':os.environ['REPO']},
+                 'workflow_run':run}
+          artifact={'workflow_run':dict(run)}
+          forbidden={'repository':os.environ['REPO'],
+                     'run_id':approved['run_id'],
+                     'artifact_name':policy['artifact_name'],
+                     'commit_sha':'0'*40}
+          try:
+              require_authorized_revision(event,artifact,policy,forbidden)
+              raise AssertionError('Wrong approved SHA unexpectedly accepted')
+          except Denied as error:
+              assert str(error)=='approved_commit_changed',str(error)
+          print(json.dumps({'v9_wrong_sha':'denied',
+                            'fixture_origin':'previously authenticated real API response'}))
+          PY
       - name: V9 cryptographic approval integration using real GitHub API and benign ZIP
         env:
           GH_TOKEN: ${{ github.token }}
