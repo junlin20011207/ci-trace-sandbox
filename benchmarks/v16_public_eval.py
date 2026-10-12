@@ -70,14 +70,19 @@ def tool_scan(command,cwd,timeout=90):
             obj=json.loads(output)
         except (ValueError,TypeError):
             obj=None
-        findings=(
-            len(obj.get("findings",[])) if isinstance(obj,dict) and
-            isinstance(obj.get("findings"),list) else
-            len(obj.get("runs",[])) if isinstance(obj,dict) and "runs" in obj else None
-        )
+        entries=(obj if isinstance(obj,list) else
+                 obj.get("findings",[]) if isinstance(obj,dict) else [])
+        findings=len(entries) if isinstance(entries,list) else None
+        rule_counts={}
+        for item in entries if isinstance(entries,list) else []:
+            if not isinstance(item,dict):continue
+            ident=item.get("ident") or item.get("rule_id") or item.get("rule")
+            if isinstance(ident,dict):ident=ident.get("id")
+            if isinstance(ident,str):
+                rule_counts[ident]=rule_counts.get(ident,0)+1
         return {"available":True,"returncode":run.returncode,
           "seconds":round(time.monotonic()-t,4),"parsed_json":obj is not None,
-          "finding_count":findings,
+          "finding_count":findings,"rule_counts":dict(sorted(rule_counts.items())),
           "stdout_sha256":hashlib.sha256(output.encode()).hexdigest(),
           "stdout_excerpt":output[:250],"stderr_excerpt":run.stderr[:250]}
     except (FileNotFoundError,subprocess.TimeoutExpired) as e:
