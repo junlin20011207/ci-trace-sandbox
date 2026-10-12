@@ -39,6 +39,7 @@ def sample_rows(path):
     rng=random.Random(SEED)
     rows=[]
     eligible=0
+    seen=set()
     with gzip.open(path,'rt',encoding='utf8') as stream:
         for line in stream:
             try:
@@ -48,6 +49,8 @@ def sample_rows(path):
                 if (not isinstance(repo,str) or repo.count('/')!=1 or
                     not isinstance(sha,str) or len(sha)!=40):continue
             except (ValueError,AttributeError):continue
+            if repo in seen:continue
+            seen.add(repo)
             eligible+=1
             entry={'repo':repo,'ref':sha,'advisory':None,
                    'class':'GHALogs_external_unlabeled_historical','required':[]}
