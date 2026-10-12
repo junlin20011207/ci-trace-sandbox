@@ -92,3 +92,10 @@ jobs:
           print("gitee_branch_sha="+str((p.get("commit") or {}).get("id")))
           PY
           fi
+
+      - name: Regression test two-client Git branch-creation race
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 20 "https://raw.githubusercontent.com/junlin20011207/ci-trace-sandbox/${GITHUB_SHA}/research/race-create-only.sh" -o /tmp/race-create-only.sh
+          bash /tmp/race-create-only.sh
