@@ -96,6 +96,12 @@ jobs:
           with open('ci-trace-r22-evidence.json','w') as f:json.dump(metadata,f,sort_keys=True,indent=2)
           print('ARTIFACT_SHA256='+hashlib.sha256(open('ci-trace-r22-evidence.json','rb').read()).hexdigest())
           PY
+      - name: Transfer attested subject to distinct hosted runner
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-trace-r22-evidence
+          path: ci-trace-r22-evidence.json
+          retention-days: 5
       - name: Sign workload provenance with GitHub Sigstore integration
         uses: actions/attest@v4
         with:
@@ -108,3 +114,40 @@ jobs:
           set -euo pipefail
           gh attestation verify ci-trace-r22-evidence.json --repo "$GITHUB_REPOSITORY" | head -n 45
           echo 'SIGSTORE_PROVENANCE_VERIFIED=yes'
+
+  cross-runner-signed-transfer:
+    needs: sigstore-provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - name: Download signed subject created by a DIFFERENT runner
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-trace-r22-evidence
+      - name: Verify source digest and exact signer identity on second machine
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          issuer="https://github.com/$GITHUB_REPOSITORY/.github/workflows/ci-trace-r22-evidence.yml@$GITHUB_REF"
+          gh attestation verify ci-trace-r22-evidence.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --cert-identity "$issuer" \
+            --source-digest "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners
+          echo "SECOND_MACHINE_SIGNED_PROVENANCE_VERIFIED=yes"
+          cp ci-trace-r22-evidence.json /tmp/original.json
+          printf '\nmodified\n' >> ci-trace-r22-evidence.json
+          set +e
+          gh attestation verify ci-trace-r22-evidence.json --repo "$GITHUB_REPOSITORY" > /tmp/tamper-attempt.log 2>&1
+          denied=$?
+          set -e
+          test "$denied" -ne 0
+          echo "TAMPERED_ARTIFACT_REJECTED=yes"
+          test "$(sha256sum /tmp/original.json | cut -d ' ' -f1)" != "$(sha256sum ci-trace-r22-evidence.json | cut -d ' ' -f1)"
+          echo "NO_INDEPENDENT_BUSINESS_APPROVAL=HOLD"
