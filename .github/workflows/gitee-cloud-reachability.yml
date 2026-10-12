@@ -76,3 +76,19 @@ jobs:
               echo "gitee_push_dry_run_was_non_mutating=yes"
             )
           fi
+
+      - name: Inspect public Gitee default-branch protection metadata
+        shell: bash
+        run: |
+          set -u
+          code=$(curl -sS -L --max-time 18 -o /tmp/gitee_branch.json -w '%{http_code}' https://gitee.com/api/v5/repos/liljunlin/test/branches/master)
+          echo "gitee_branch_api_http=$code"
+          if [ "$code" = 200 ]; then
+            python3 - <<'PY'
+          import json
+          p=json.load(open("/tmp/gitee_branch.json",encoding="utf-8"))
+          print("gitee_branch_name="+str(p.get("name")))
+          print("gitee_branch_protected="+str(p.get("protected")))
+          print("gitee_branch_sha="+str((p.get("commit") or {}).get("id")))
+          PY
+          fi
