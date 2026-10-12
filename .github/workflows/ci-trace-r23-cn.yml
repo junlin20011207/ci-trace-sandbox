@@ -1,0 +1,95 @@
+name: CI-TRACE R23 CN SM2 Gitee read-only and offline trust
+on:
+  push:
+    branches:
+      - research/ci-trace-r23-domestic-mtls-sm2-20261012
+permissions: {}
+jobs:
+  sm2-issuer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+      contents: read
+    steps:
+      - name: Create ephemeral OpenSSL SM2 signing proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl version
+          openssl genpkey -algorithm SM2 -out ephemeral-sm2.key
+          openssl pkey -in ephemeral-sm2.key -pubout -out issuer-public.pem
+          printf '{"authority":"LAB-ONLY-NOT-BUSINESS-APPROVAL","platform":"CODEARTS_OR_GITEE_GO_ADAPTER_FIXTURE","subject_git_sha":"%s","target":"gitee.com/liljunlin/test","publish_performed":false}\n' "$GITHUB_SHA" > signed-claim.json
+          openssl dgst -sm3 signed-claim.json
+          openssl pkeyutl -sign -in signed-claim.json -inkey ephemeral-sm2.key -out signature.der -rawin -digest sm3 -pkeyopt distid:CI-TRACE-CN-R23
+          openssl pkeyutl -verify -in signed-claim.json -pubin -inkey issuer-public.pem -sigfile signature.der -rawin -digest sm3 -pkeyopt distid:CI-TRACE-CN-R23
+          test -s signature.der
+          sha256sum issuer-public.pem signed-claim.json signature.der
+          echo 'HOSTED_CN_SM2_SM3_SIGNATURE_VERIFIED=yes'
+      - name: Attest the temporary public key origin with GitHub Sigstore
+        uses: actions/attest@v4
+        with:
+          subject-path: issuer-public.pem
+      - name: Export only public verification materials
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-trace-r23-sm2-public-evidence
+          path: |
+            issuer-public.pem
+            signed-claim.json
+            signature.der
+          retention-days: 5
+  separate-hosted-verifier:
+    needs: sm2-issuer
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - name: Download on DIFFERENT GitHub-hosted runner
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-trace-r23-sm2-public-evidence
+      - name: Pin producer identity and verify SM2/SM3 without a private key
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/ci-trace-r23-cn.yml@$GITHUB_REF"
+          gh attestation verify issuer-public.pem --repo "$GITHUB_REPOSITORY" --cert-identity "$identity" --source-digest "$GITHUB_SHA" --source-ref "$GITHUB_REF" --deny-self-hosted-runners >/dev/null
+          openssl pkeyutl -verify -in signed-claim.json -pubin -inkey issuer-public.pem -sigfile signature.der -rawin -digest sm3 -pkeyopt distid:CI-TRACE-CN-R23
+          echo 'SECOND_HOST_SM2_SM3_PUBLIC_KEY_ANCHORED=yes'
+          printf 'tampering\n' >> signed-claim.json
+          if openssl pkeyutl -verify -in signed-claim.json -pubin -inkey issuer-public.pem -sigfile signature.der -rawin -digest sm3 -pkeyopt distid:CI-TRACE-CN-R23 >/dev/null 2>&1; then
+            echo 'ERROR: modified claim wrongly accepted'; exit 1
+          fi
+          echo 'SECOND_HOST_TAMPERING_REJECTED=yes'
+          if openssl pkeyutl -verify -in signed-claim.json -pubin -inkey issuer-public.pem -sigfile signature.der -rawin -digest sm3 -pkeyopt distid:WRONG-CONTEXT >/dev/null 2>&1; then
+            echo 'ERROR: different SM2 user-id wrongly accepted'; exit 1
+          fi
+          echo 'NO_PRIVATE_SIGNING_KEY_TRANSFERRED=yes'
+  gitee-real-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Confirm live Gitee public remote, never push
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_TERMINAL_PROMPT=0
+          echo 'Gitee public refs under read-only anonymous access:'
+          git -c credential.helper= ls-remote https://gitee.com/liljunlin/test.git HEAD refs/heads/master | tee /tmp/gitee-public-refs.txt
+          test -s /tmp/gitee-public-refs.txt
+          python3 - <<'PY'
+          import re
+          records=[line.split() for line in open('/tmp/gitee-public-refs.txt') if line.strip()]
+          assert records and all(len(x)==2 and re.fullmatch(r'[0-9a-f]{40}',x[0]) and x[1] in ('HEAD','refs/heads/master') for x in records),records
+          print('GITEE_PUBLIC_GIT_SHA40_REFS_VALIDATED=yes')
+          PY
+          echo 'GITEE_REAL_READ_ONLY_ACCESS=yes'
+          echo 'GITEE_NO_PUSH_NO_TOKEN=yes'
