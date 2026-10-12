@@ -73,7 +73,6 @@ def test_missing_signature_or_duplicate_key_rejected(tmp_path):
     del proof['signatures']['release_approver']
     with pytest.raises(Denied,match='approval_quorum_missing'):
         sink.execute(proof,roots,proof['subject'])
-    _,_,roots,p=sample(tmp_path/'second') if False else (None,None,roots,None)
     roots['release_approver']['public_hex']=roots['security_approver']['public_hex']
     with pytest.raises(Denied,match='independent_approvers_required'):
         sink.execute(proof,roots,proof['subject'])
@@ -121,3 +120,18 @@ finally:os._exit(137)
     assert worker.returncode==137,worker.stderr
     assert AtomicEffectSink(sink.path).execute(proof,roots,proof['subject'])['value_after']==1
     assert sink.inspect()['effects']==1
+
+def test_peer_cannot_override_protected_verifier_roots(tmp_path):
+    from ci_trace.quorum_effect_v15 import execute_with_protected_roots
+    sink,keys,roots,proof=sample(tmp_path)
+    checkout=tmp_path/'checkout';checkout.mkdir()
+    protected=tmp_path/'pin';protected.mkdir(mode=0o700)
+    file=protected/'policy.json'
+    file.write_text(json.dumps({'trust':roots,'expected_subject':proof['subject']}))
+    file.chmod(0o600)
+    assert execute_with_protected_roots(sink,proof,file,checkout)['value_after']==1
+    forged={'subject':proof['subject'],'signatures':{
+       role:{'key_id':role+'-not-pinned','signature':'AA=='}
+       for role in ROLES}}
+    with pytest.raises(Denied,match='approval_role_key_mismatch'):
+        execute_with_protected_roots(sink,forged,file,checkout)
