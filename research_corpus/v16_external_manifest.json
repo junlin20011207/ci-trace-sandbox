@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "selection": "purposive public-repository pilot, NOT statistically random or blind",
+  "freeze_date": "2026-10-12",
+  "sources": [
+    {
+      "repo": "nf-core/tools",
+      "ref": "75e643ad2c62cdc8ecd39aa56c0c314efd4b13e4",
+      "advisory": "GHSL-2025-080",
+      "class": "pull_request_target_checkout_execution",
+      "required": [
+        ".github/workflows/changelog.yml"
+      ]
+    },
+    {
+      "repo": "DataDog/trivy",
+      "ref": "7acb5f6f095a11cb9911af5a0bc03aecc7c88f8f",
+      "advisory": "GHSL-2026-199",
+      "class": "pull_request_target_local_action",
+      "required": []
+    },
+    {
+      "repo": "marimo-team/marimo",
+      "ref": "b4181abaf6bd896b6b0dac5490c9cf08269b590c",
+      "advisory": "GHSL-2026-226",
+      "class": "approval_to_checkout_toctou",
+      "required": [
+        ".github/workflows/marimo-bot.yml"
+      ]
+    },
+    {
+      "repo": "spiffe/spire",
+      "ref": "ef8527ec91013c6c1b4741e0f6ac0786576e620e",
+      "advisory": "GHSL-2026-204",
+      "class": "artifact_overlay_import",
+      "required": []
+    },
+    {
+      "repo": "actions/attest",
+      "ref": "60c8019",
+      "advisory": "GHSL-2026-225",
+      "class": "artifact_metadata_write",
+      "required": []
+    },
+    {
+      "repo": "pytables/pytables",
+      "ref": "416cac8728e40578af77ef91bdee4c754de4b76e",
+      "advisory": null,
+      "class": "unlabeled",
+      "required": []
+    },
+    {
+      "repo": "boostsecurityio/poutine",
+      "ref": "v1.1.6",
+      "advisory": null,
+      "class": "unlabeled",
+      "required": []
+    },
+    {
+      "repo": "zizmorcore/zizmor",
+      "ref": "v1.30.1",
+      "advisory": null,
+      "class": "unlabeled",
+      "required": []
+    },
+    {
+      "repo": "D2KLab/gha-dataset",
+      "ref": "master",
+      "advisory": null,
+      "class": "unlabeled",
+      "required": []
+    },
+    {
+      "repo": "jupyterlab/maintainer-tools",
+      "ref": "b48fcdb87e70c45789abd80d4042b06641e47b46",
+      "advisory": "GHSL-2026-203",
+      "class": "composite_action_toctou",
+      "required": []
+    }
+  ],
+  "max_workflows_per_repo": 15,
+  "public_retrieval": "GitHub REST contents API; no external workflow execution",
+  "reference_dataset": "GHALogs MSR 2025: https://zenodo.org/records/14796970 (used only its published repository example for this pilot; no claim full corpus downloaded)"
+}

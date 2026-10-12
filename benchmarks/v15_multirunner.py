@@ -65,6 +65,12 @@ def verify(folder):
     with tempfile.TemporaryDirectory(prefix='ci-trace-v15-runner-') as d:
         secure=Path(d)/'db';secure.mkdir(mode=0o700)
         sink=AtomicEffectSink(secure/'effect.db')
+        from ci_trace.provenance_guard import Denied
+        try:
+            sink.execute(proof,trust,expected,interrupt='after_commit')
+            raise AssertionError('injected ACK loss not observed')
+        except Denied as exc:
+            assert str(exc)=='simulated_lost_ack_after_commit'
         for _ in range(30):sink.execute(proof,trust,expected)
         assert sink.inspect()['value']==sink.inspect()['effects']==1
     print(json.dumps({'security_runner':hosts[0],'release_runner':hosts[1],
@@ -72,6 +78,7 @@ def verify(folder):
        'boot_hash_prefixes':[b[:12] for b in boots+[my_boot]],
        'two_ephemeral_signatures_verified':True,
        'effect_count_after_30_retries':1,
+       'postcommit_ack_loss_injected':True,
        'not_a_production_authority':True},sort_keys=True))
 
 if __name__=='__main__':
