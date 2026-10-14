@@ -1,0 +1,74 @@
+name: CI-TRACE R25 Gitee current permission verification
+on:
+  push:
+    branches:
+      - research/ci-trace-r25-current-gitee-audit-20261014
+permissions: {}
+jobs:
+  gitee-authority-boundary-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions: {}
+    steps:
+      - name: Read Gitee remote and public API without a token
+        shell: bash
+        run: |
+          set -euo pipefail
+          export GIT_TERMINAL_PROMPT=0
+          python3 - <<'PY'
+          import json,urllib.request,urllib.error
+          urls={
+            'repo':'https://gitee.com/api/v5/repos/liljunlin/test',
+            'branch':'https://gitee.com/api/v5/repos/liljunlin/test/branches/master',
+            'protection':'https://gitee.com/api/v5/repos/liljunlin/test/branches/master/protection',
+          }
+          result={}
+          for key,url in urls.items():
+            req=urllib.request.Request(url,headers={'Accept':'application/json','User-Agent':'ci-trace-r24-public-readonly'})
+            try:
+              with urllib.request.urlopen(req,timeout=18) as f:
+                status=f.status
+                obj=json.loads(f.read(250000).decode('utf-8'))
+                result[key]={'http_status':status,'object_type':type(obj).__name__}
+                if isinstance(obj,dict):
+                  for field in ['full_name','default_branch','protected','name','private','message']:
+                    if field in obj and isinstance(obj[field],(str,int,float,bool,type(None))):
+                      result[key][field]=obj[field]
+            except urllib.error.HTTPError as e:
+              result[key]={'http_status':e.code,'visible_to_anonymous':False}
+            except Exception as e:
+              result[key]={'error_type':type(e).__name__,'visible_to_anonymous':False}
+          print('GITEE_PUBLIC_METADATA='+json.dumps(result,sort_keys=True))
+          with open('r24_public_metadata.json','w') as f:json.dump(result,f,indent=2,sort_keys=True)
+          PY
+          git -c credential.helper= ls-remote https://gitee.com/liljunlin/test.git HEAD refs/heads/master | tee /tmp/gitee-refs.txt
+          test -s /tmp/gitee-refs.txt
+          python3 - <<'PY'
+          import re,json
+          rs=[x.split() for x in open('/tmp/gitee-refs.txt') if x.strip()]
+          assert rs and all(len(x)==2 and re.fullmatch(r'[0-9a-f]{40}',x[0]) for x in rs)
+          assert any(x[1]=='refs/heads/master' for x in rs)
+          with open('r24_public_metadata.json') as f: v=json.load(f)
+          v['git_readonly']={'ls_remote_success':True,'refs':{x[1]:x[0] for x in rs}}
+          branch=v.get('branch',{})
+          v['proofs']={
+             'gitee_git_read':True,
+             'anonymous_branch_protection_explicit_true':branch.get('protected') is True,
+             'anonymous_branch_protection_explicit_false':branch.get('protected') is False,
+             'effective_permission_denial_of_authenticated_developer':False,
+             'positive_authorized_gitee_push':False,
+             'native_codearts_or_giteego_trigger':False,
+             'independently_owned_issuer_key':False,
+          }
+          v['final_production_gate']='HOLD'
+          with open('r24_public_metadata.json','w') as f:json.dump(v,f,indent=2,sort_keys=True)
+          print('VERIFIED_GITEE_MASTER_SHA='+v['git_readonly']['refs']['refs/heads/master'])
+          print('PUBLIC_BRANCH_PROTECTION='+str(branch.get('protected','UNKNOWN')))
+          print('PRODUCTION_RELEASE_GATE=HOLD')
+          PY
+      - name: Publish sanitized readiness evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-trace-r24-public-readonly-audit
+          path: r24_public_metadata.json
+          retention-days: 5
