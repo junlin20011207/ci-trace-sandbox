@@ -1,0 +1,47 @@
+{
+  "schema": "CI-TRACE competition demo v1",
+  "local_sm2_platform_contracts": {
+    "CODEARTS": {
+      "verified": true,
+      "public_key_sha256": "6bc767798caec4ec0f3686b9db20283b9e03d893b4bb4e6a372453635823bbcd",
+      "environment": "ISOLATED_LOCAL_GIT_FIXTURE",
+      "vendor_pipeline_executed": false
+    },
+    "GITEE_GO": {
+      "verified": true,
+      "public_key_sha256": "492a569da23ded810161eb9f3144345be21582778c3e01411ed69f74f8a80808",
+      "environment": "ISOLATED_LOCAL_GIT_FIXTURE",
+      "vendor_pipeline_executed": false
+    }
+  },
+  "local_git_protocol": {
+    "scenario_count": 9,
+    "passed": 9,
+    "outcomes": {
+      "legitimate": "ACK_PUBLISHED",
+      "wrong_recipient": "HOLD_bound_subject_mismatch",
+      "payload_swap": "HOLD_PAYLOAD_MISMATCH",
+      "expired": "HOLD_expired",
+      "revoked": "HOLD_DENY_REVOKED",
+      "replay": "ACK_PUBLISHED",
+      "concurrent": "ONE_WINNER",
+      "crash_recovery": "RECOVERED_ACK_PUBLISHED",
+      "branch_collision": "HOLD_TARGET_EXISTS"
+    },
+    "environment": "DISPOSABLE_LOCAL_BARE_GIT"
+  },
+  "archived_real_gitee_web_merge": {
+    "offline_valid": true,
+    "verifier_reason": "VALID_LAB_OBSERVATION_WITH_OFFLINE_GIT_OBJECT_AND_API_CONSISTENCY",
+    "archive_sha256": "0426dd4dca6e0222d5c168ab08a5efdddca91e60265ed4fb6544a4120f4307db",
+    "lab_public_key_sha256": "8c648b361866cc1144788f7ff1317420e683a8ba3c819427dc45697877edd45d",
+    "tampered_local_copy_rejected": true,
+    "gitee_write_during_this_demo": false
+  },
+  "hosted_public_witness": {
+    "run_url": "https://github.com/junlin20011207/ci-trace-sandbox/actions/runs/39031776743",
+    "attestation_url": "https://github.com/junlin20011207/ci-trace-sandbox/attestations/56943794",
+    "checked_online_during_this_demo": false
+  },
+  "claim_boundary": "Local SM2/Git tests, archived real Gitee Web merge and past hosted readback are separate evidence types; none proves a vendor-signed approval or Git CLI push denial."
+}
