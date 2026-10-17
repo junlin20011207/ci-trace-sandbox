@@ -30,9 +30,9 @@ python3 ci_trace.py verify-gitee
 | `lab/protocol.py`、`lab/demo_engine.py`、`lab/formal` | R22 本地授权与 Git 原子发布协议、故障恢复和模型/场景 |
 | `evidence/r27/CI_TRACE_R27_Deep_Gitee_Proof.zip` | 真实 Gitee Web 合并的历史对象与只读公开 API 快照；LAB 签名，不是 Gitee 厂商签章 |
 | `evidence/r28` | GitHub 托管只读见证与 24 PR 上下文方便样本的报告 |
-| `ENTRY_REPORT.md` | 参赛作品正文的可审阅源稿；PDF 是提交排版件 |
+| `OFFICIAL_ENTRY_REPORT.md` | 按官方附件章节组织的参赛正文源稿；PDF 是匿名提交排版件 |
 
-R25 本地 Git 服务器端 hook 的研究结论只作为可选扩展，**不是** Gitee SaaS 可安装该 hook 的证明。原始各轮说明仍在 `lab/`；以本 README 和 `ENTRY_REPORT.md` 的限制陈述为提交口径。
+R25 本地 Git 服务器端 hook 的研究结论只作为可选扩展，**不是** Gitee SaaS 可安装该 hook 的证明。原始各轮说明仍在 `lab/`；以本 README 和 `OFFICIAL_ENTRY_REPORT.md` 的限制陈述为提交口径。PDF 按官方附件的摘要、五章、参考文献与填写说明页编排，正文为 12 磅宋体风格嵌入字库、18 磅行距；摘要 258 字。正式原创性声明仍须由参赛团队签名。
 
 ## 进一步复核
 
