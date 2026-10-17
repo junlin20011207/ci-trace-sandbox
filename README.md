@@ -4,6 +4,8 @@
 
 本包区分三种证据：本地隔离的完整控制链路、Gitee 测试仓库的真实 Web 发布历史、GitHub 托管的公开状态见证。它们不是同一次跨组织生产发布。
 
+**评委入口：** 独立提交 ZIP 内含 `output/pptx/CI-TRACE_参赛展示_匿名版_v2.pptx`（12 页匿名路演稿）；本仓库与 ZIP 都有 `JUDGE_ONE_PAGER.md`（一页证据地图）及 `PITCH_SCRIPT.md`（7 分钟讲述和现场命令）。本页以下与 PDF 作品报告承担复现和技术审查用途。
+
 ## 快速运行
 
 环境：Linux/macOS，Python 3.11+、Git、OpenSSL 3.x（支持 SM2/SM3），Python 包 `cryptography`。如需运行可选 Web UI 和 pytest 产品测试，再安装 `lab/requirements.txt` 中的全部依赖。下述主命令无需 FastAPI/pytest，也无需网络或 Gitee 凭据。
