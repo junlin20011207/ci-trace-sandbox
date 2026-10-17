@@ -1,0 +1,103 @@
+name: CI-TRACE R28 hosted witness of real Gitee Web merge
+on:
+  push:
+    branches:
+      - research/ci-trace-r27-gitee-proof-crosscheck-20261017
+permissions: {}
+jobs:
+  producer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify exact archived R27 bytes offline, then read current Gitee state
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive=research/r27/CI_TRACE_R27_Deep_Gitee_Proof.zip
+          expected=0426dd4dca6e0222d5c168ab08a5efdddca91e60265ed4fb6544a4120f4307db
+          test "$(sha256sum "$archive" | cut -d ' ' -f1)" = "$expected"
+          mkdir -p "$RUNNER_TEMP/r27"
+          unzip -q "$archive" -d "$RUNNER_TEMP/r27"
+          pin=8c648b361866cc1144788f7ff1317420e683a8ba3c819427dc45697877edd45d
+          python3 "$RUNNER_TEMP/r27/verify_deep.py" --bundle "$RUNNER_TEMP/r27" --trusted-public-sha256 "$pin" > offline.json
+          python3 "$RUNNER_TEMP/r27/verify_live_ref.py" --bundle "$RUNNER_TEMP/r27" --trusted-public-sha256 "$pin" > witness.json
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path('witness.json');d=json.loads(p.read_text())
+          assert d['valid'] is True and d['protected'] is True and d['pr_state']=='merged'
+          d.update({'archive_sha256':'0426dd4dca6e0222d5c168ab08a5efdddca91e60265ed4fb6544a4120f4307db',
+                    'source_repository':os.environ['GITHUB_REPOSITORY'],
+                    'source_sha':os.environ['GITHUB_SHA'],
+                    'authority':'HOSTED_PUBLIC_READ_ONLY_WITNESS_NOT_BUSINESS_APPROVAL',
+                    'gitee_write_performed':False})
+          p.write_text(json.dumps(d,sort_keys=True,indent=2)+'\n')
+          print('REAL_GITEE_PUBLIC_READBACK_AND_R27_OFFLINE_PROOF_VALID=yes')
+          print('GITEE_WRITE_PERFORMED=no')
+          PY
+      - name: Attest the witness subject with GitHub hosted identity
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: witness.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-trace-r28-public-witness
+          path: |
+            witness.json
+            offline.json
+          retention-days: 7
+  second-hosted-verifier:
+    needs: producer
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ci-trace-r28-public-witness
+      - name: Verify exact hosted signer and source, then reject altered witness
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          workflow="https://github.com/$GITHUB_REPOSITORY/.github/workflows/ci-trace-r28-hosted-witness.yml@$GITHUB_REF"
+          gh attestation verify witness.json --repo "$GITHUB_REPOSITORY" --cert-identity "$workflow" --source-digest "$GITHUB_SHA" --source-ref "$GITHUB_REF" --deny-self-hosted-runners >/dev/null
+          mkdir -p "$RUNNER_TEMP/r27"
+          archive=research/r27/CI_TRACE_R27_Deep_Gitee_Proof.zip
+          unzip -q "$archive" -d "$RUNNER_TEMP/r27"
+          python3 "$RUNNER_TEMP/r27/verify_deep.py" --bundle "$RUNNER_TEMP/r27" --trusted-public-sha256 8c648b361866cc1144788f7ff1317420e683a8ba3c819427dc45697877edd45d > offline-second.json
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          d=json.loads(Path('witness.json').read_text())
+          archive=Path('research/r27/CI_TRACE_R27_Deep_Gitee_Proof.zip')
+          assert d['valid'] is True and d['reason']=='CURRENT_PUBLIC_REFS_MATCH_HISTORICAL_LAB_OBSERVATION'
+          assert d['archive_sha256']==hashlib.sha256(archive.read_bytes()).hexdigest()
+          assert d['source_sha']==os.environ['GITHUB_SHA']
+          assert d['gitee_write_performed'] is False
+          assert json.loads(Path('offline-second.json').read_text())['valid'] is True
+          print('SECOND_HOSTED_RUNNER_GITEE_WITNESS_AND_OBJECT_PROOF_VERIFIED=yes')
+          PY
+          cp witness.json "$RUNNER_TEMP/original-witness.json"
+          python3 - <<'PY'
+          import json
+          p='witness.json';x=json.load(open(p));x['protected']=False
+          with open(p,'w') as f:json.dump(x,f,sort_keys=True)
+          PY
+          set +e
+          gh attestation verify witness.json --repo "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/tamper-result.log" 2>&1
+          denied=$?
+          set -e
+          test "$denied" -ne 0
+          echo 'SECOND_HOSTED_RUNNER_TAMPERED_WITNESS_REJECTED=yes'
+          echo 'NO_ORGANIZATIONAL_APPROVAL_CLAIM=yes'
