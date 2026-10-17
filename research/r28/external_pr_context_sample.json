@@ -1,0 +1,327 @@
+{
+  "method": "At 2026-10-17 UTC, for each of pypa/pip, django/django, kubernetes/kubernetes: list the latest 30 closed PRs by updated time, take first 8 merged, fetch PR reviews. Count APPROVED reviews submitted on or before merged_at and compare review.commit_id against final PR head.sha. Convenience sample; not a random or policy compliance sample. No claim that GitHub permitted an invalid approval.",
+  "rows": [
+    {
+      "repo": "pypa/pip",
+      "number": 14362,
+      "head_sha": "43c80254ec34e446b4753b9cc009c6d3ae7c94c0",
+      "merged_at": "2026-10-14T22:06:17Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "pypa/pip",
+      "number": 14354,
+      "head_sha": "e6d3613230e3f77ff599e5a7ae19cab89c388636",
+      "merged_at": "2026-10-14T21:13:42Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "pypa/pip",
+      "number": 14352,
+      "head_sha": "9fdd3b082d41c58c7f13a03c5c7a38494870ffa3",
+      "merged_at": "2026-10-13T14:56:38Z",
+      "review_count": 1,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "9fdd3b082d41c58c7f13a03c5c7a38494870ffa3"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "pypa/pip",
+      "number": 14349,
+      "head_sha": "723235a19bd49c80227348b58ea78a11bdea8a8d",
+      "merged_at": "2026-10-13T14:12:52Z",
+      "review_count": 1,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "723235a19bd49c80227348b58ea78a11bdea8a8d"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "pypa/pip",
+      "number": 14348,
+      "head_sha": "22e5f0e3ea5d40b1203d78da10ca26076aded893",
+      "merged_at": "2026-10-12T21:29:00Z",
+      "review_count": 1,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "22e5f0e3ea5d40b1203d78da10ca26076aded893"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "pypa/pip",
+      "number": 14347,
+      "head_sha": "afe2811ee3c79985d1eec30515ebe3bcb210850c",
+      "merged_at": "2026-10-14T22:10:06Z",
+      "review_count": 2,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "de6c5f14f02b9d6d8fbf5268bd40eec2b18d54f7"
+      ],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "pypa/pip",
+      "number": 14346,
+      "head_sha": "3de9fde6f1201bade7ca852d69cdc65859b6fe69",
+      "merged_at": "2026-10-12T05:23:26Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "pypa/pip",
+      "number": 14338,
+      "head_sha": "d33530e19d94eed1d7fc502255e7e2ea5a83bae5",
+      "merged_at": "2026-10-12T01:27:40Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "django/django",
+      "number": 22149,
+      "head_sha": "6e0e2b7d64bd41e4ff92df28c155b7ed2b54f09a",
+      "merged_at": "2026-10-15T06:51:05Z",
+      "review_count": 1,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "6e0e2b7d64bd41e4ff92df28c155b7ed2b54f09a"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "django/django",
+      "number": 22144,
+      "head_sha": "8650e28b5edd7f4ee4cb94dd6a2fef5db8a31dbb",
+      "merged_at": "2026-10-14T12:29:10Z",
+      "review_count": 2,
+      "approval_count": 2,
+      "approval_commit_ids": [
+        "8f4465411e9ba1394bc23d478ecf06c0ea803534"
+      ],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "django/django",
+      "number": 22141,
+      "head_sha": "f8cff2bec3a8c35f3bd4160691092dfc49ac6f2d",
+      "merged_at": "2026-10-14T01:04:35Z",
+      "review_count": 2,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "c66bd2ae0b22d742b074efa76e3ab2b912d63c62"
+      ],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "django/django",
+      "number": 22139,
+      "head_sha": "da0781c5bf4ecf41760b44db5c245e27b1d4ad2e",
+      "merged_at": "2026-10-12T15:02:32Z",
+      "review_count": 1,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "da0781c5bf4ecf41760b44db5c245e27b1d4ad2e"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "django/django",
+      "number": 22132,
+      "head_sha": "7d983a05a3b0edb1d277abc3968f058b2525714c",
+      "merged_at": "2026-10-13T20:14:07Z",
+      "review_count": 7,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "7d983a05a3b0edb1d277abc3968f058b2525714c"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "django/django",
+      "number": 22122,
+      "head_sha": "8b6c0afaef2b9495e40f3b14bd6cecd038472fee",
+      "merged_at": "2026-10-10T01:43:47Z",
+      "review_count": 1,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "8b6c0afaef2b9495e40f3b14bd6cecd038472fee"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "django/django",
+      "number": 22121,
+      "head_sha": "785d43a98eba30990a1d68747272f649132dc8bc",
+      "merged_at": "2026-10-11T14:28:36Z",
+      "review_count": 1,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "785d43a98eba30990a1d68747272f649132dc8bc"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "django/django",
+      "number": 22118,
+      "head_sha": "5f5b0f2c92a2952eb1c3e8871306eaa3d550e4a3",
+      "merged_at": "2026-10-09T14:09:10Z",
+      "review_count": 1,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "5f5b0f2c92a2952eb1c3e8871306eaa3d550e4a3"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "kubernetes/kubernetes",
+      "number": 143116,
+      "head_sha": "b4213f9b623094d1a6caaab38deb25e93a0d9b2c",
+      "merged_at": "2026-10-16T23:30:11Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "kubernetes/kubernetes",
+      "number": 143100,
+      "head_sha": "3e7c67e6a97e42e0629ac4fbd5d5f0036719513b",
+      "merged_at": "2026-10-16T15:30:31Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "kubernetes/kubernetes",
+      "number": 143098,
+      "head_sha": "5e5c837b679dfd911314175e5b0b0b8c882ec10c",
+      "merged_at": "2026-10-16T15:30:22Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "kubernetes/kubernetes",
+      "number": 143089,
+      "head_sha": "734094d4b3c00a86ba250c6398294817e5c6c602",
+      "merged_at": "2026-10-16T10:34:10Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "kubernetes/kubernetes",
+      "number": 143083,
+      "head_sha": "ea3c297c54db961f0d85ea015d0fa164688519d6",
+      "merged_at": "2026-10-16T08:02:11Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "kubernetes/kubernetes",
+      "number": 143081,
+      "head_sha": "bd3079531444253592b4049b1507e58d393278c4",
+      "merged_at": "2026-10-16T09:26:10Z",
+      "review_count": 0,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "kubernetes/kubernetes",
+      "number": 143075,
+      "head_sha": "da093cf2abf4eac462d172123df92714de2312f9",
+      "merged_at": "2026-10-16T05:26:17Z",
+      "review_count": 41,
+      "approval_count": 0,
+      "approval_commit_ids": [],
+      "has_final_head_approval": false,
+      "all_approval_ids_known": true
+    },
+    {
+      "repo": "kubernetes/kubernetes",
+      "number": 143074,
+      "head_sha": "2acfb0091067bdc70cb05f0029d03f44427afea8",
+      "merged_at": "2026-10-15T23:36:07Z",
+      "review_count": 1,
+      "approval_count": 1,
+      "approval_commit_ids": [
+        "2acfb0091067bdc70cb05f0029d03f44427afea8"
+      ],
+      "has_final_head_approval": true,
+      "all_approval_ids_known": true
+    }
+  ],
+  "case_checks": [
+    {
+      "repo": "pypa/pip",
+      "number": 14347,
+      "classification": "approval anchored to ancestor in final PR history; later final head commit, with committer timestamp after approval",
+      "approval_at": "2026-10-14T21:33:17Z",
+      "later_commit_at": "2026-10-14T21:42:57Z"
+    },
+    {
+      "repo": "django/django",
+      "number": 22144,
+      "classification": "approval anchor absent from final PR commit list; history rewrite or other context change not established",
+      "approval_at": [
+        "2026-10-14T08:31:05Z",
+        "2026-10-14T11:41:17Z"
+      ]
+    },
+    {
+      "repo": "django/django",
+      "number": 22141,
+      "classification": "approval anchor absent from final PR commit list; history rewrite or other context change not established",
+      "approval_at": "2026-10-12T22:18:07Z"
+    }
+  ],
+  "summary": {
+    "total": 24,
+    "with_approval": 13,
+    "approval_anchor_not_final_head": 3,
+    "linear_post_approval_commit": 1,
+    "unresolved_rewritten_context": 2,
+    "without_observed_approval": 11
+  }
+}

@@ -14,7 +14,7 @@ jobs:
       attestations: write
       artifact-metadata: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Verify exact archived R27 bytes offline, then read current Gitee state
         shell: bash
         run: |
@@ -42,10 +42,10 @@ jobs:
           print('GITEE_WRITE_PERFORMED=no')
           PY
       - name: Attest the witness subject with GitHub hosted identity
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: witness.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ci-trace-r28-public-witness
           path: |
@@ -60,8 +60,8 @@ jobs:
       contents: read
       attestations: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ci-trace-r28-public-witness
       - name: Verify exact hosted signer and source, then reject altered witness
